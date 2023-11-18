@@ -10,12 +10,16 @@ use sdl2::rect::Rect;
 
 const FPS: u32 = 10;
 
-const COLS: u32 = 180;
-const ROWS: u32 = 80;
+const COLS: u32 = 80;
+const ROWS: u32 = 60;
 const SIZE: u32 = 10;
 
-const TOTAL_WIDTH: u32 = COLS * SIZE;
-const TOTAL_HEIGHT: u32 = ROWS * SIZE;
+const H_MARGIN : u32 = 20;
+const V_MARGIN : u32 = 40;
+const TOOLBAR_HEIGHT : u32 = 100;
+
+const TOTAL_WIDTH: u32 = COLS * SIZE + H_MARGIN * 2;
+const TOTAL_HEIGHT: u32 = ROWS * SIZE + V_MARGIN * 2 + TOOLBAR_HEIGHT;
 
 pub fn main() {
 	let sdl_context = sdl2::init().unwrap();
@@ -51,8 +55,8 @@ pub fn main() {
 				}
 				Event::MouseButtonDown { x, y, .. } => {
 					if !iterating_population {
-						let i = ((y as f32) / (SIZE as f32)).floor() as i32;
-						let j = ((x as f32) / (SIZE as f32)).floor() as i32;
+						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
+						let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
 	
 						population[i as usize][j as usize] = !population[i as usize][j as usize];
 					}
@@ -66,6 +70,8 @@ pub fn main() {
 		canvas.clear();
 
 
+
+
 		
 		draw_current_population(&mut canvas, &population, iterating_population);
 
@@ -74,6 +80,7 @@ pub fn main() {
 		}
 
 		draw_lines(&mut canvas);
+		draw_outerlines(&mut canvas);
 
 
 		canvas.present();
@@ -90,15 +97,20 @@ pub fn main() {
 fn draw_lines(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>) {
 	canvas.set_draw_color(Color::RGB(40, 40, 40));
 	for i in 1..COLS {
-		let start_point = Point::new((SIZE * i) as i32, 0);
-		let end_point = Point::new((SIZE * i) as i32, TOTAL_HEIGHT as i32);
+		let start_point = Point::new((H_MARGIN + SIZE * i) as i32, V_MARGIN as i32);
+		let end_point = Point::new((H_MARGIN + SIZE * i) as i32, (V_MARGIN + (ROWS * SIZE)-1) as i32);
 		let _ = canvas.draw_line(start_point, end_point);
 	}
 	for i in 1..ROWS {
-		let start_point = Point::new(0, (SIZE * i) as i32);
-		let end_point = Point::new(TOTAL_WIDTH as i32, (SIZE * i) as i32);
+		let start_point = Point::new(H_MARGIN as i32, (V_MARGIN + SIZE * i) as i32);
+		let end_point = Point::new((H_MARGIN + (COLS * SIZE)-1) as i32, (V_MARGIN + SIZE * i) as i32);
 		let _ = canvas.draw_line(start_point, end_point);
 	}
+}
+
+fn draw_outerlines(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>) {
+	canvas.set_draw_color(Color::RGB(80, 80, 80));
+	let _ = canvas.draw_rect(Rect::new(H_MARGIN as i32, V_MARGIN as i32, COLS * SIZE, ROWS * SIZE));
 }
 
 fn draw_current_population(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, population : &Vec<Vec<bool>>, iterating : bool) {
@@ -106,7 +118,7 @@ fn draw_current_population(canvas : &mut sdl2::render::Canvas<sdl2::video::Windo
 		for j in 0..COLS {
 			if population[i as usize][j as usize] == true {
 				canvas.set_draw_color(Color::RGB(if iterating { 0 } else { 255 }, if iterating { 255 } else {0}, 0));
-				let drawing_rect = Rect::new((j * SIZE) as i32, (i * SIZE) as i32, SIZE, SIZE);
+				let drawing_rect = Rect::new((H_MARGIN + j * SIZE) as i32, (V_MARGIN + i * SIZE) as i32, SIZE, SIZE);
 				let _ = canvas.fill_rect(drawing_rect);
 			}
 		}
