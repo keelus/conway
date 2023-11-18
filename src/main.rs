@@ -1,10 +1,14 @@
 extern crate sdl2;
 
+use std::time::Duration;
+
 use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 use sdl2::rect::Rect;
 
+const FPS: u32 = 10;
 
 const COLS: u32 = 180;
 const ROWS: u32 = 80;
@@ -27,6 +31,8 @@ pub fn main() {
 
 	let mut event_pump = sdl_context.event_pump().unwrap();
 
+
+	let mut iterating_population = false;
 	let mut population = vec![vec![false; COLS as usize]; ROWS as usize];
 
 	population[3][3] = true;
@@ -35,9 +41,23 @@ pub fn main() {
 
 
 	'running: loop {
+		let frame_start = std::time::Instant::now();
+
 		for event in event_pump.poll_iter() {
 			match event {
 				Event::Quit { .. } => break 'running,
+				Event::KeyDown { keycode:Some(Keycode::Return), .. } => {
+					iterating_population = !iterating_population
+				}
+				Event::MouseButtonDown { x, y, .. } => {
+					if !iterating_population {
+						let i = ((y as f32) / (SIZE as f32)).floor() as i32;
+						let j = ((x as f32) / (SIZE as f32)).floor() as i32;
+	
+						population[i as usize][j as usize] = !population[i as usize][j as usize];
+					}
+
+				},
 				_ => {}
 			}
 		}
@@ -46,15 +66,24 @@ pub fn main() {
 		canvas.clear();
 
 
+		
+		draw_current_population(&mut canvas, &population, iterating_population);
 
-		draw_current_population(&mut canvas, &population);
-
-		population = iterate_population(&population);
+		if iterating_population {
+			population = iterate_population(&population);
+		}
 
 		draw_lines(&mut canvas);
 
 
 		canvas.present();
+
+		let frame_duration = frame_start.elapsed();
+		let wanted_frame_duration = Duration::from_secs(1) / FPS;
+
+		if frame_duration < wanted_frame_duration {
+			std::thread::sleep(wanted_frame_duration - frame_duration)
+		}
 	}
 }
 
@@ -72,11 +101,11 @@ fn draw_lines(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>) {
 	}
 }
 
-fn draw_current_population(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, population : &Vec<Vec<bool>>) {
+fn draw_current_population(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, population : &Vec<Vec<bool>>, iterating : bool) {
 	for i in 0..ROWS {
 		for j in 0..COLS {
 			if population[i as usize][j as usize] == true {
-				canvas.set_draw_color(Color::RGB(255, 0, 0));
+				canvas.set_draw_color(Color::RGB(if iterating { 0 } else { 255 }, if iterating { 255 } else {0}, 0));
 				let drawing_rect = Rect::new((j * SIZE) as i32, (i * SIZE) as i32, SIZE, SIZE);
 				let _ = canvas.fill_rect(drawing_rect);
 			}
