@@ -26,7 +26,7 @@ pub fn main() {
 	let video_subsystem = sdl_context.video().unwrap();
 
 	let window = video_subsystem
-		.window("rust-sdl2 demo", TOTAL_WIDTH, TOTAL_HEIGHT)
+		.window("Conway's Game Of Life :: by keelus", TOTAL_WIDTH, TOTAL_HEIGHT)
 		.position_centered()
 		.build()
 		.unwrap();
