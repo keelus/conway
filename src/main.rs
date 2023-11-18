@@ -2,13 +2,16 @@ extern crate sdl2;
 
 use std::time::Duration;
 
+use sdl2::EventPump;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 use sdl2::rect::Rect;
+use sdl2::render::TextureQuery;
 
-const FPS: u32 = 10;
+const ITERATION_COOLDOWN : Duration = std::time::Duration::from_millis(200);
 
 const COLS: u32 = 80;
 const ROWS: u32 = 60;
@@ -23,6 +26,7 @@ const TOTAL_HEIGHT: u32 = ROWS * SIZE + V_MARGIN * 2 + TOOLBAR_HEIGHT;
 
 pub fn main() {
 	let sdl_context = sdl2::init().unwrap();
+	let ttf_context = sdl2::ttf::init().unwrap();
 	let video_subsystem = sdl_context.video().unwrap();
 
 	let window = video_subsystem
@@ -32,12 +36,17 @@ pub fn main() {
 		.unwrap();
 
 	let mut canvas = window.into_canvas().build().unwrap();
+    let texture_creator = canvas.texture_creator();
 
 	let mut event_pump = sdl_context.event_pump().unwrap();
 
 
 	let mut iterating_population = false;
 	let mut population = vec![vec![false; COLS as usize]; ROWS as usize];
+	let mut population_number = 0;
+	let mut last_interation = std::time::Instant::now();
+	let mut example_button = Button::new(Color { r: 255, g: 0, b: 0, a: 255 }, Rect::new(5, 5, 100, 20));
+
 
 	population[3][3] = true;
 	population[3][4] = true;
@@ -45,8 +54,6 @@ pub fn main() {
 
 
 	'running: loop {
-		let frame_start = std::time::Instant::now();
-
 		for event in event_pump.poll_iter() {
 			match event {
 				Event::Quit { .. } => break 'running,
@@ -57,11 +64,26 @@ pub fn main() {
 					if !iterating_population {
 						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
 						let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-	
-						population[i as usize][j as usize] = !population[i as usize][j as usize];
+
+						if i >= 0 && i < ROWS as i32 && j >= 0 && j < COLS as i32 {
+							population[i as usize][j as usize] = !population[i as usize][j as usize];
+						}
 					}
 
 				},
+				Event::MouseMotion { x, y, mousestate, ..} => {
+					if !iterating_population && mousestate.is_mouse_button_pressed(MouseButton::Left) {
+						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
+						let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
+
+						if i >= 0 && i < ROWS as i32 && j >= 0 && j < COLS as i32 {
+							population[i as usize][j as usize] = true;
+						}
+
+					}
+
+					example_button.check_hover(x, y);
+				}
 				_ => {}
 			}
 		}
@@ -70,27 +92,35 @@ pub fn main() {
 		canvas.clear();
 
 
+		let mut font = ttf_context.load_font("./src/fonts/EnvyCodeR_regular.ttf", 15).unwrap();
+		font.set_style(sdl2::ttf::FontStyle::NORMAL);
 
+		
+		let surface = font.render(format!("Population: {}", population_number).as_str())
+			.blended(Color::RGBA(255, 255 ,255, 255)).unwrap();
+		let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
 
+		let TextureQuery { width, height, .. } = texture.query();
+
+		let _ = canvas.copy(&texture, None, Some(Rect::new(H_MARGIN as i32, (V_MARGIN - height) as i32  , width, height)));
 		
 		draw_current_population(&mut canvas, &population, iterating_population);
 
-		if iterating_population {
+		if iterating_population && last_interation.elapsed() > ITERATION_COOLDOWN {
 			population = iterate_population(&population);
+			population_number += 1;
+			last_interation = std::time::Instant::now();
 		}
 
 		draw_lines(&mut canvas);
 		draw_outerlines(&mut canvas);
 
+		example_button.draw(&mut canvas);
+
 
 		canvas.present();
 
-		let frame_duration = frame_start.elapsed();
-		let wanted_frame_duration = Duration::from_secs(1) / FPS;
-
-		if frame_duration < wanted_frame_duration {
-			std::thread::sleep(wanted_frame_duration - frame_duration)
-		}
+		
 	}
 }
 
@@ -168,4 +198,30 @@ fn get_neighbors(population : &Vec<Vec<bool>>, target_i : i32, target_j : i32) -
 	}
 	
 	return neighbors;
+}
+
+
+struct Button {
+	color: Color,
+	rect: Rect,
+	hovered: bool
+}
+
+impl Button {
+	fn new(color: Color, rect: Rect) -> Self {
+		Self {
+			color,
+			rect,
+			hovered: false
+		}
+	}
+
+	fn draw(&self, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>) {
+		let _ = canvas.set_draw_color(if self.hovered {Color::RGB(0, 255, 0)} else {self.color});
+		let _ = canvas.fill_rect(self.rect);
+	}
+
+	fn check_hover(&mut self, x : i32, y : i32) {
+		self.hovered = self.rect.contains_point(Point::new(x, y))
+	}
 }
