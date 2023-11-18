@@ -9,6 +9,9 @@ use sdl2::pixels::Color;
 use sdl2::rect::Point;
 use sdl2::rect::Rect;
 use sdl2::render::TextureQuery;
+use sdl2::ttf::Font;
+
+
 
 const ITERATION_COOLDOWN : Duration = std::time::Duration::from_millis(200);
 
@@ -22,6 +25,14 @@ const TOOLBAR_HEIGHT : u32 = 100;
 
 const TOTAL_WIDTH: u32 = COLS * SIZE + H_MARGIN * 2;
 const TOTAL_HEIGHT: u32 = ROWS * SIZE + V_MARGIN * 2 + TOOLBAR_HEIGHT;
+
+const BTN_ALPHA : u8 = 200;
+
+
+const COLOR_GREEN: Color = Color::RGB(87, 171, 90);
+const COLOR_YELLOW: Color = Color::RGB(218, 170, 63);
+const COLOR_RED: Color = Color::RGB(229, 83, 75);
+const COLOR_BLUE: Color = Color::RGB(82, 155, 245);
 
 pub fn main() {
 	let sdl_context = sdl2::init().unwrap();
@@ -42,9 +53,18 @@ pub fn main() {
 
 	let mut iterating_population = false;
 	let mut population = vec![vec![false; COLS as usize]; ROWS as usize];
+	let mut previous_population = vec![vec![false; COLS as usize]; ROWS as usize];
 	let mut population_number = 0;
 	let mut last_interation = std::time::Instant::now();
-	let mut example_button = Button::new(Color { r: 255, g: 0, b: 0, a: 255 }, Rect::new(5, 5, 100, 20));
+
+	let mut btn_start_simulation = Button::new(COLOR_GREEN, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + ROWS*SIZE) as i32, 150, 20), "Start simulation".to_string());
+	let mut btn_pause_resume_simulation = Button::new(COLOR_RED, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + ROWS*SIZE) as i32, 150, 20), "Pause simulation".to_string());
+	let mut btn_abort_simulation = Button::new(COLOR_RED, Rect::new(H_MARGIN as i32 + 160, (V_MARGIN + 5 + ROWS*SIZE) as i32, 150, 20), "Abort simulation".to_string());
+	let mut btn_abort_n_save_simulation = Button::new(COLOR_RED, Rect::new(H_MARGIN as i32 + 320, (V_MARGIN + 5 + ROWS*SIZE) as i32, 275, 20), "Abort simulation and save state".to_string());
+	let mut btn_clear_population = Button::new(COLOR_BLUE, Rect::new(H_MARGIN as i32 + 160, (V_MARGIN + 5 + ROWS*SIZE) as i32, 150, 20), "Clear population".to_string());
+	btn_pause_resume_simulation.hidden = true;
+	btn_abort_simulation.hidden = true;
+	btn_abort_n_save_simulation.hidden = true;
 
 
 	population[3][3] = true;
@@ -56,9 +76,6 @@ pub fn main() {
 		for event in event_pump.poll_iter() {
 			match event {
 				Event::Quit { .. } => break 'running,
-				Event::KeyDown { keycode:Some(Keycode::Return), .. } => {
-					iterating_population = !iterating_population
-				}
 				Event::MouseButtonDown { x, y, .. } => {
 					if !iterating_population {
 						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
@@ -67,6 +84,58 @@ pub fn main() {
 						if i >= 0 && i < ROWS as i32 && j >= 0 && j < COLS as i32 {
 							population[i as usize][j as usize] = !population[i as usize][j as usize];
 						}
+					}
+
+					if btn_start_simulation.is_hovered() {
+						println!("Start simulation");
+						iterating_population = true;
+						previous_population = population.clone();
+						
+					} else if btn_pause_resume_simulation.is_hovered() {
+						println!("Pause or resume simulation");
+						iterating_population = !iterating_population;
+
+						if iterating_population {
+							btn_pause_resume_simulation.text = "Pause simulation".to_string();
+							btn_pause_resume_simulation.update_color(COLOR_RED);
+						} else {
+							btn_pause_resume_simulation.text = "Resume simulation".to_string();
+							btn_pause_resume_simulation.update_color(COLOR_YELLOW);
+						}
+					} else if btn_abort_simulation.is_hovered() {
+						println!("Abort simulation");
+						iterating_population = false;
+
+						population = previous_population.clone();
+						population_number = 0;
+					} else if btn_abort_n_save_simulation.is_hovered() {
+						println!("Abort and save simulation");
+						iterating_population = false;
+
+						population_number = 0;
+					} else if btn_clear_population.is_hovered() {
+						println!("Clear population");
+						population = vec![vec![false; COLS as usize]; ROWS as usize];
+					}
+
+					
+					if !iterating_population {
+						if population_number == 0 {
+							btn_start_simulation.hidden = false;
+							btn_pause_resume_simulation.hidden = true;
+						} else {
+							btn_start_simulation.hidden = true;
+							btn_pause_resume_simulation.hidden = false;
+						}
+						btn_clear_population.hidden = false;
+						btn_abort_simulation.hidden = true;
+						btn_abort_n_save_simulation.hidden = true;
+					} else {
+						btn_start_simulation.hidden = true;
+						btn_clear_population.hidden = true;
+						btn_pause_resume_simulation.hidden = false;
+						btn_abort_simulation.hidden = false;
+						btn_abort_n_save_simulation.hidden = false;
 					}
 
 				},
@@ -81,7 +150,13 @@ pub fn main() {
 
 					}
 
-					example_button.check_hover(x, y);
+					
+					
+					btn_start_simulation.update_hover(x, y);
+					btn_pause_resume_simulation.update_hover(x, y);
+					btn_abort_simulation.update_hover(x, y);
+					btn_abort_n_save_simulation.update_hover(x, y);
+					btn_clear_population.update_hover(x, y);
 				}
 				_ => {}
 			}
@@ -91,8 +166,8 @@ pub fn main() {
 		canvas.clear();
 
 
-		let mut font = ttf_context.load_font("./fonts/EnvyCodeR_regular.ttf", 15).unwrap();
-		font.set_style(sdl2::ttf::FontStyle::NORMAL);
+		let mut font = ttf_context.load_font("./fonts/EnvyCodeR_bold.ttf", 15).unwrap();
+		font.set_style(sdl2::ttf::FontStyle::BOLD);
 
 		
 		let surface = font.render(format!("Population: {}", population_number).as_str())
@@ -114,8 +189,13 @@ pub fn main() {
 		draw_lines(&mut canvas);
 		draw_outerlines(&mut canvas);
 
-		example_button.draw(&mut canvas);
+		
 
+		btn_start_simulation.draw(&mut canvas, &mut font);
+		btn_pause_resume_simulation.draw(&mut canvas, &mut font);
+		btn_clear_population.draw(&mut canvas, &mut font);
+		btn_abort_simulation.draw(&mut canvas, &mut font);
+		btn_abort_n_save_simulation.draw(&mut canvas, &mut font);
 
 		canvas.present();
 
@@ -200,27 +280,59 @@ fn get_neighbors(population : &Vec<Vec<bool>>, target_i : i32, target_j : i32) -
 }
 
 
+
+
 struct Button {
 	color: Color,
+	hover_color: Color,
 	rect: Rect,
-	hovered: bool
+	hovered: bool,
+	text: String,
+	hidden: bool
 }
 
 impl Button {
-	fn new(color: Color, rect: Rect) -> Self {
+	fn new(color: Color, rect: Rect, text: String) -> Self {
+
+		let hover_color = Color::RGBA(color.r, color.g, color.b, BTN_ALPHA);
 		Self {
 			color,
+			hover_color,
 			rect,
-			hovered: false
+			hovered: false,
+			text,
+			hidden: false
 		}
 	}
 
-	fn draw(&self, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>) {
-		let _ = canvas.set_draw_color(if self.hovered {Color::RGB(0, 255, 0)} else {self.color});
-		let _ = canvas.fill_rect(self.rect);
+	fn update_color(&mut self, new_color: Color) {
+		self.color = new_color;
+		self.hover_color = Color::RGBA(new_color.r, new_color.g, new_color.b, BTN_ALPHA);
 	}
 
-	fn check_hover(&mut self, x : i32, y : i32) {
+	fn draw(&self, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, font: &mut Font) {
+		if !self.hidden {
+			let surface = font.render(self.text.as_str())
+				.blended(Color::RGBA(255, 255 ,255, 255)).unwrap();
+			let texture_creator = canvas.texture_creator();
+			let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
+	
+			let TextureQuery { width, height, .. } = texture.query();
+	
+			canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+			let _ = canvas.set_draw_color(if self.hovered {self.hover_color} else {self.color});
+			let _ = canvas.fill_rect(self.rect);
+			canvas.set_blend_mode(sdl2::render::BlendMode::None);
+	
+			let _ = canvas.copy(&texture, None, Some(Rect::new(self.rect.x + self.rect.w/2 - (width/2) as i32, self.rect.y + self.rect.h/2 - (height/2) as i32, width, height)));
+		}
+	}
+
+	fn is_hovered(&self) -> bool {
+		return !self.hidden && self.hovered;
+	}
+
+	fn update_hover(&mut self, x : i32, y : i32) {
 		self.hovered = self.rect.contains_point(Point::new(x, y))
 	}
 }
