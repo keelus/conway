@@ -2,7 +2,6 @@ extern crate sdl2;
 
 use std::time::Duration;
 
-use sdl2::EventPump;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
@@ -92,7 +91,7 @@ pub fn main() {
 		canvas.clear();
 
 
-		let mut font = ttf_context.load_font("./src/fonts/EnvyCodeR_regular.ttf", 15).unwrap();
+		let mut font = ttf_context.load_font("./fonts/EnvyCodeR_regular.ttf", 15).unwrap();
 		font.set_style(sdl2::ttf::FontStyle::NORMAL);
 
 		
