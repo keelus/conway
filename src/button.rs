@@ -33,11 +33,6 @@ impl Button {
 		}
 	}
 
-	pub fn update_color(&mut self, new_color: Color) {
-		self.color = new_color;
-		self.hover_color = Color::RGBA(new_color.r, new_color.g, new_color.b, BTN_ALPHA);
-	}
-
 	pub fn draw(&self, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, font: &mut Font) {
 		if !self.hidden {
 			let surface = font.render(self.text.as_str())

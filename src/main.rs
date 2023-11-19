@@ -1,6 +1,7 @@
 extern crate sdl2;
 
 mod button;
+mod button_icon;
 
 use core::fmt;
 use std::time::Duration;
@@ -76,18 +77,20 @@ pub fn main() {
 	let mut population_amount = 0;
 	let mut last_interation = std::time::Instant::now();
 
-	let mut btn_start_simulation = button::Button::new(COLOR_GREEN, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + ROWS*SIZE) as i32, 70, 20), "Start".to_string());
-	let mut btn_pause_resume_simulation = button::Button::new(COLOR_YELLOW, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + ROWS*SIZE) as i32, 70, 20), "Pause".to_string());
-	let mut btn_abort_simulation = button::Button::new(COLOR_RED, Rect::new(H_MARGIN as i32 + 80, (V_MARGIN + 5 + ROWS*SIZE) as i32, 70, 20), "Abort".to_string());
-	let mut btn_abort_n_save_simulation = button::Button::new(COLOR_RED, Rect::new(H_MARGIN as i32 + 160, (V_MARGIN + 5 + ROWS*SIZE) as i32, 190, 20), "Abort and save state".to_string());
-	let mut btn_clear_generation = button::Button::new(COLOR_BLUE, Rect::new((H_MARGIN + COLS*SIZE) as i32 - 150, (V_MARGIN + 5 + ROWS*SIZE) as i32, 150, 20), "Clear population".to_string());
+	let mut btn_start_simulation 		= button::Button::new(COLOR_GREEN, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + ROWS*SIZE) as i32, 70, 30), "Start".to_string());
+	let mut btn_pause_resume_simulation = button::Button::new(COLOR_YELLOW, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + ROWS*SIZE) as i32, 70, 30), "Pause".to_string());
+	let mut btn_abort_simulation 		= button::Button::new(COLOR_RED, Rect::new(H_MARGIN as i32 + 80, (V_MARGIN + 5 + ROWS*SIZE) as i32, 70, 30), "Abort".to_string());
+	let mut btn_abort_n_save_simulation = button::Button::new(COLOR_RED, Rect::new(H_MARGIN as i32 + 160, (V_MARGIN + 5 + ROWS*SIZE) as i32, 190, 30), "Abort and save state".to_string());
+	let mut btn_clear_generation 		= button::Button::new(COLOR_BLUE, Rect::new((H_MARGIN + COLS*SIZE) as i32 - 150, (V_MARGIN + 5 + ROWS*SIZE) as i32, 150, 30), "Clear population".to_string());
 	btn_pause_resume_simulation.set_hidden(true);
 	btn_abort_simulation.set_hidden(true);
 	btn_abort_n_save_simulation.set_hidden(true);
 	
-	let mut btn_tool_pencil = button::Button::new(COLOR_YELLOW, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + ROWS*SIZE) as i32 + 30, 20, 20), "P".to_string());
-	let mut btn_tool_eraser = button::Button::new(COLOR_YELLOW, Rect::new(H_MARGIN as i32 + 30, (V_MARGIN + 5 + ROWS*SIZE) as i32 + 30, 20, 20), "E".to_string());
-	let mut btn_tool_hand = button::Button::new(COLOR_YELLOW, Rect::new(H_MARGIN as i32 + 60, (V_MARGIN + 5 + ROWS*SIZE) as i32 + 30, 20, 20), "H".to_string());
+
+	let mut btn_tool_pencil = button_icon::ButtonIcon::new(Rect::new((H_MARGIN + COLS*SIZE) as i32 - 190 - 70, (V_MARGIN + 5 + ROWS*SIZE) as i32, 30, 30), "./icons/pencil.bmp".to_string());
+	let mut btn_tool_eraser = button_icon::ButtonIcon::new(Rect::new((H_MARGIN + COLS*SIZE) as i32 - 190 - 35, (V_MARGIN + 5 + ROWS*SIZE) as i32, 30, 30), "./icons/eraser.bmp".to_string());
+	let mut btn_tool_hand 	= button_icon::ButtonIcon::new(Rect::new((H_MARGIN + COLS*SIZE) as i32 - 190,	  (V_MARGIN + 5 + ROWS*SIZE) as i32, 30, 30), "./icons/hand.bmp".to_string());
+	btn_tool_pencil.set_active(true);
 
 
 	let mut font = ttf_context.load_font("./fonts/EnvyCodeR_bold.ttf", 15).unwrap();
@@ -115,6 +118,7 @@ pub fn main() {
 					if btn_start_simulation.is_hovered() {
 						iterating_generation = true;
 						previous_generation = generation.clone();
+						btn_pause_resume_simulation.set_text("Pause".to_string());
 						
 					} else if btn_pause_resume_simulation.is_hovered() {
 						iterating_generation = !iterating_generation;
@@ -137,10 +141,22 @@ pub fn main() {
 						generation = vec![vec![false; COLS as usize]; ROWS as usize];
 					} else if btn_tool_pencil.is_hovered() {
 						active_tool = Tool::PENCIL;
+
+						btn_tool_pencil.set_active(true);
+						btn_tool_eraser.set_active(false);
+						btn_tool_hand.set_active(false);
 					} else if btn_tool_eraser.is_hovered() {
 						active_tool = Tool::ERASER;
+						
+						btn_tool_pencil.set_active(false);
+						btn_tool_eraser.set_active(true);
+						btn_tool_hand.set_active(false);
 					} else if btn_tool_hand.is_hovered() {
 						active_tool = Tool::HAND;
+						
+						btn_tool_pencil.set_active(false);
+						btn_tool_eraser.set_active(false);
+						btn_tool_hand.set_active(true);
 					}
 
 					
@@ -157,12 +173,18 @@ pub fn main() {
 							btn_abort_n_save_simulation.set_hidden(false);
 						}
 						btn_clear_generation.set_hidden(false);
+						btn_tool_pencil.set_hidden(false);
+						btn_tool_eraser.set_hidden(false);
+						btn_tool_hand.set_hidden(false);
 					} else {
 						btn_start_simulation.set_hidden(true);
 						btn_clear_generation.set_hidden(true);
 						btn_pause_resume_simulation.set_hidden(false);
 						btn_abort_simulation.set_hidden(false);
 						btn_abort_n_save_simulation.set_hidden(false);
+						btn_tool_pencil.set_hidden(true);
+						btn_tool_eraser.set_hidden(true);
+						btn_tool_hand.set_hidden(true);
 					}
 
 				},
@@ -230,9 +252,9 @@ pub fn main() {
 		btn_abort_simulation.draw(&mut canvas, &mut font);
 		btn_abort_n_save_simulation.draw(&mut canvas, &mut font);
 		
-		btn_tool_pencil.draw(&mut canvas, &mut font);
-		btn_tool_eraser.draw(&mut canvas, &mut font);
-		btn_tool_hand.draw(&mut canvas, &mut font);
+		btn_tool_pencil.draw(&mut canvas);
+		btn_tool_eraser.draw(&mut canvas);
+		btn_tool_hand.draw(&mut canvas);
 
 		
 		canvas.present();
