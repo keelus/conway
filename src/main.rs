@@ -127,153 +127,147 @@ pub fn main() {
 					}
 				},
 				Event::MouseButtonDown { x, y, mouse_btn, .. } => {
-					if mouse_btn == MouseButton::Left {
-						if active_tool == Tool::HAND {
-							let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-							let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-
-							if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
-								dragging = true;
-								dragging_start = (x, y);
-							}
-						}
-
-						if !iterating_generation {
-							let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-							let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-
-							if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
-								if active_tool == Tool::PENCIL {
-									generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = true;
-								} else if active_tool == Tool::ERASER {
-									generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = false;
+					match mouse_btn {
+						MouseButton::Left => {
+							if active_tool == Tool::HAND {
+								let (_, clicked_canvas) = get_click_indexes(x, y);
+								if clicked_canvas {
+									dragging = true;
+									dragging_start = (x, y);
 								}
 							}
-						}
-
-						if btn_start_simulation.is_hovered() {
-							iterating_generation = true;
-							previous_generation = generation.clone();
-							btn_pause_resume_simulation.set_text("Pause".to_string());
-							active_tool = Tool::HAND;
-							btn_tool_hand.set_active(true);
-							btn_tool_pencil.set_active(false);
-							btn_tool_eraser.set_active(false);
-						} else if btn_pause_resume_simulation.is_hovered() {
-							iterating_generation = !iterating_generation;
-
-							if iterating_generation {
+	
+							if !iterating_generation {
+								let (indexes, clicked_canvas) = get_click_indexes(x, y);
+								if clicked_canvas {
+									if active_tool == Tool::PENCIL {
+										generation[(top_left_row as i32 + indexes.0) as usize][(top_left_col as i32 + indexes.1)  as usize] = true;
+									} else if active_tool == Tool::ERASER {
+										generation[(top_left_row as i32 + indexes.0) as usize][(top_left_col as i32 + indexes.1)  as usize] = false;
+									}
+								}
+							}
+	
+							if btn_start_simulation.is_hovered() {
+								iterating_generation = true;
+								previous_generation = generation.clone();
 								btn_pause_resume_simulation.set_text("Pause".to_string());
 								active_tool = Tool::HAND;
 								btn_tool_hand.set_active(true);
 								btn_tool_pencil.set_active(false);
 								btn_tool_eraser.set_active(false);
-							} else {
-								btn_pause_resume_simulation.set_text("Resume".to_string());
+							} else if btn_pause_resume_simulation.is_hovered() {
+								iterating_generation = !iterating_generation;
+	
+								if iterating_generation {
+									btn_pause_resume_simulation.set_text("Pause".to_string());
+									active_tool = Tool::HAND;
+									btn_tool_hand.set_active(true);
+									btn_tool_pencil.set_active(false);
+									btn_tool_eraser.set_active(false);
+								} else {
+									btn_pause_resume_simulation.set_text("Resume".to_string());
+									active_tool = Tool::PENCIL;
+									btn_tool_pencil.set_active(true);
+									btn_tool_hand.set_active(false);
+									btn_tool_eraser.set_active(false);
+								}
+	
+							} else if btn_abort_simulation.is_hovered() {
+								iterating_generation = false;
+	
+								generation = previous_generation.clone();
+								generation_number = 0;
 								active_tool = Tool::PENCIL;
 								btn_tool_pencil.set_active(true);
 								btn_tool_hand.set_active(false);
 								btn_tool_eraser.set_active(false);
+							} else if btn_abort_n_save_simulation.is_hovered() {
+								iterating_generation = false;
+	
+								generation_number = 0;
+								active_tool = Tool::PENCIL;
+								btn_tool_pencil.set_active(true);
+								btn_tool_hand.set_active(false);
+								btn_tool_eraser.set_active(false);
+							} else if btn_clear_generation.is_hovered() {
+								generation = vec![vec![false; COLS as usize]; ROWS as usize];
+							} else if btn_tool_pencil.is_hovered() {
+								active_tool = Tool::PENCIL;
+	
+								btn_tool_pencil.set_active(true);
+								btn_tool_eraser.set_active(false);
+								btn_tool_hand.set_active(false);
+							} else if btn_tool_eraser.is_hovered() {
+								active_tool = Tool::ERASER;
+								
+								btn_tool_pencil.set_active(false);
+								btn_tool_eraser.set_active(true);
+								btn_tool_hand.set_active(false);
+							} else if btn_tool_hand.is_hovered() {
+								active_tool = Tool::HAND;
+								
+								btn_tool_pencil.set_active(false);
+								btn_tool_eraser.set_active(false);
+								btn_tool_hand.set_active(true);
 							}
-
-						} else if btn_abort_simulation.is_hovered() {
-							iterating_generation = false;
-
-							generation = previous_generation.clone();
-							generation_number = 0;
-							active_tool = Tool::PENCIL;
-							btn_tool_pencil.set_active(true);
-							btn_tool_hand.set_active(false);
-							btn_tool_eraser.set_active(false);
-						} else if btn_abort_n_save_simulation.is_hovered() {
-							iterating_generation = false;
-
-							generation_number = 0;
-							active_tool = Tool::PENCIL;
-							btn_tool_pencil.set_active(true);
-							btn_tool_hand.set_active(false);
-							btn_tool_eraser.set_active(false);
-						} else if btn_clear_generation.is_hovered() {
-							generation = vec![vec![false; COLS as usize]; ROWS as usize];
-						} else if btn_tool_pencil.is_hovered() {
-							active_tool = Tool::PENCIL;
-
-							btn_tool_pencil.set_active(true);
-							btn_tool_eraser.set_active(false);
-							btn_tool_hand.set_active(false);
-						} else if btn_tool_eraser.is_hovered() {
-							active_tool = Tool::ERASER;
 							
-							btn_tool_pencil.set_active(false);
-							btn_tool_eraser.set_active(true);
-							btn_tool_hand.set_active(false);
-						} else if btn_tool_hand.is_hovered() {
-							active_tool = Tool::HAND;
-							
-							btn_tool_pencil.set_active(false);
-							btn_tool_eraser.set_active(false);
-							btn_tool_hand.set_active(true);
-						}
-						
-						if !iterating_generation {
-							if generation_number == 0 {
-								btn_start_simulation.set_hidden(false);
-								btn_pause_resume_simulation.set_hidden(true);
-								btn_abort_simulation.set_hidden(true);
-								btn_abort_n_save_simulation.set_hidden(true);
+							if !iterating_generation {
+								if generation_number == 0 {
+									btn_start_simulation.set_hidden(false);
+									btn_pause_resume_simulation.set_hidden(true);
+									btn_abort_simulation.set_hidden(true);
+									btn_abort_n_save_simulation.set_hidden(true);
+								} else {
+									btn_start_simulation.set_hidden(true);
+									btn_pause_resume_simulation.set_hidden(false);
+									btn_abort_simulation.set_hidden(false);
+									btn_abort_n_save_simulation.set_hidden(false);
+								}
+								btn_clear_generation.set_hidden(false);
+								btn_tool_pencil.set_hidden(false);
+								btn_tool_eraser.set_hidden(false);
 							} else {
 								btn_start_simulation.set_hidden(true);
+								btn_clear_generation.set_hidden(true);
 								btn_pause_resume_simulation.set_hidden(false);
 								btn_abort_simulation.set_hidden(false);
 								btn_abort_n_save_simulation.set_hidden(false);
+								btn_tool_pencil.set_hidden(true);
+								btn_tool_eraser.set_hidden(true);
 							}
-							btn_clear_generation.set_hidden(false);
-							btn_tool_pencil.set_hidden(false);
-							btn_tool_eraser.set_hidden(false);
-						} else {
-							btn_start_simulation.set_hidden(true);
-							btn_clear_generation.set_hidden(true);
-							btn_pause_resume_simulation.set_hidden(false);
-							btn_abort_simulation.set_hidden(false);
-							btn_abort_n_save_simulation.set_hidden(false);
-							btn_tool_pencil.set_hidden(true);
-							btn_tool_eraser.set_hidden(true);
-						}
-					} else if mouse_btn == MouseButton::Middle {
-						active_tool = Tool::HAND;
-						btn_tool_hand.set_active(true);
-						btn_tool_pencil.set_active(false);
-						btn_tool_eraser.set_active(false);
-
-						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-						let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-
-						if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
-							dragging = true;
-							dragging_start = (x, y);
-						}
+						},
+						MouseButton::Middle => {
+							active_tool = Tool::HAND;
+							btn_tool_hand.set_active(true);
+							btn_tool_pencil.set_active(false);
+							btn_tool_eraser.set_active(false);
+	
+							
+							let (_, clicked_canvas) = get_click_indexes(x, y);
+							if clicked_canvas {
+								dragging = true;
+								dragging_start = (x, y);
+							}
+						},
+						_ => {}
 					}
 				},
 				Event::MouseMotion { x, y, mousestate, ..} => {
 					if !iterating_generation && mousestate.is_mouse_button_pressed(MouseButton::Left) {
-						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-						let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-
-						if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
+						let (indexes, clicked_canvas) = get_click_indexes(x, y);
+						if clicked_canvas {
 							if active_tool == Tool::PENCIL {
-								generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = true;
+								generation[(top_left_row as i32 + indexes.0) as usize][(top_left_col as i32 + indexes.1)  as usize] = true;
 							} else if active_tool == Tool::ERASER {
-								generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = false;
+								generation[(top_left_row as i32 + indexes.0) as usize][(top_left_col as i32 + indexes.1)  as usize] = false;
 							}
 						}
-
 					}
 
 					if active_tool == Tool::HAND && dragging {
-						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-						let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-
-						if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
+						let (_, clicked_canvas) = get_click_indexes(x, y);
+						if clicked_canvas {
 							let dragging_end = (x, y);
 		
 							let difference_x = - (dragging_end.0 - dragging_start.0);
@@ -365,11 +359,20 @@ pub fn main() {
 		btn_tool_eraser.draw(&mut canvas);
 		btn_tool_hand.draw(&mut canvas);
 
-		
 		canvas.present();
 	}
 }
 
+
+fn get_click_indexes(x: i32, y: i32) -> ((i32, i32), bool) {
+	let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
+	let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
+
+	if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
+		return ((i, j), true);
+	}
+	return ((-1, -1), false);
+}
 
 fn draw_lines(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>) {
 	canvas.set_draw_color(Color::RGB(40, 40, 40));
