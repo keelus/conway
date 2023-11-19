@@ -1,12 +1,13 @@
 [package]
 name = "conway"
+description = "Conway's Game Of Life implementation in rust."
+authors = ["keelus"]
 version = "0.1.9"
 edition = "2021"
-
-[dependencies]
-lazy_static = "1.4.0"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+repository = "https://github.com/keelus/conway"
+license = "MIT"
+license-file = "LICENSE"
+keywords = ["conway", "conways", "game", "life", "sdl2"]
 
 [dependencies.sdl2]
 version = "0.35.2"

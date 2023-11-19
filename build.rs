@@ -17,4 +17,8 @@ fn main() {
 	fs::copy(Path::join(&env::current_dir().unwrap(), "fonts/EnvyCodeR_regular.ttf"), Path::join(&target_dir, "fonts/EnvyCodeR_regular.ttf")).unwrap();
 	fs::copy(Path::join(&env::current_dir().unwrap(), "fonts/EnvyCodeR_bold.ttf"), Path::join(&target_dir, "fonts/EnvyCodeR_bold.ttf")).unwrap();
 	fs::copy(Path::join(&env::current_dir().unwrap(), "fonts/EnvyCodeR_italic.ttf"), Path::join(&target_dir, "fonts/EnvyCodeR_italic.ttf")).unwrap();
+	let _ = fs::DirBuilder::new().create(Path::join(&target_dir, "icons"));
+	fs::copy(Path::join(&env::current_dir().unwrap(), "icons/pencil.bmp"), Path::join(&target_dir, "icons/pencil.bmp")).unwrap();
+	fs::copy(Path::join(&env::current_dir().unwrap(), "icons/eraser.bmp"), Path::join(&target_dir, "icons/eraser.bmp")).unwrap();
+	fs::copy(Path::join(&env::current_dir().unwrap(), "icons/hand.bmp"), Path::join(&target_dir, "icons/hand.bmp")).unwrap();
 }
