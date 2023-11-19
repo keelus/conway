@@ -238,8 +238,6 @@ pub fn main() {
 							let difference_x = - (dragging_end.0 - dragging_start.0);
 							let difference_y = - (dragging_end.1 - dragging_start.1);
 
-							let threshold = 0;
-
 							let mut new_x = dragging_start.0;
 							let mut new_y = dragging_start.1;
 
