@@ -7,6 +7,7 @@ use core::fmt;
 use std::time::Duration;
 
 use sdl2::event::Event;
+use sdl2::libc::exit;
 use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
@@ -18,12 +19,14 @@ use sdl2::render::TextureQuery;
 
 const ITERATION_COOLDOWN : Duration = std::time::Duration::from_millis(200);
 
-const COLS: u32 = 800;
-const ROWS: u32 = 800;
+const COLS: u32 = 200;
+const ROWS: u32 = 200;
 const SIZE: u32 = 10;
 
 const VIEW_COLS : u32 = 80;
 const VIEW_ROWS : u32 = 60;
+
+const GRID_BIG_CELL_SIZE : u32 = 5;
 
 const H_MARGIN : u32 = 20;
 const V_MARGIN : u32 = 40;
@@ -57,6 +60,11 @@ impl fmt::Display for Tool {
 }
 
 pub fn main() {
+	if COLS < VIEW_COLS || ROWS < VIEW_ROWS {
+		println!("[ERROR] Total population rows x cols should be greater than shown rows x cols");
+		return;
+	}
+
 	let sdl_context = sdl2::init().unwrap();
 	let ttf_context = sdl2::ttf::init().unwrap();
 	let video_subsystem = sdl_context.video().unwrap();
@@ -75,8 +83,8 @@ pub fn main() {
 	let mut active_tool : Tool = Tool::PENCIL;
 
 
-	let mut top_left_col : u32 = 20;
-	let mut top_left_row : u32 = 20;
+	let mut top_left_col : u32 = (COLS - VIEW_COLS)/2;
+	let mut top_left_row : u32 = (ROWS - VIEW_ROWS)/2;
 
 	let mut iterating_generation = false;
 	let mut generation = vec![vec![false; COLS as usize]; ROWS as usize];
@@ -133,7 +141,6 @@ pub fn main() {
 
 						if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
 							if active_tool == Tool::PENCIL {
-								println!("Click en ({}, {})", (top_left_row as i32 + i), (top_left_col as i32 + j));
 								generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = true;
 							} else if active_tool == Tool::ERASER {
 								generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = false;
@@ -219,7 +226,6 @@ pub fn main() {
 
 						if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
 							if active_tool == Tool::PENCIL {
-								println!("Click en ({}, {})", (top_left_row as i32 + i), (top_left_col as i32 + j));
 								generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = true;
 							} else if active_tool == Tool::ERASER {
 								generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = false;
@@ -249,7 +255,7 @@ pub fn main() {
 										top_left_row += move_units;
 									}
 								} else if difference_y < 0 {
-									if top_left_row > move_units {
+									if top_left_row >= move_units {
 										top_left_row -= move_units;
 									}
 								}
@@ -261,7 +267,7 @@ pub fn main() {
 										top_left_col += move_units;
 									}
 								} else if difference_x < 0 {
-									if top_left_col > move_units {
+									if top_left_col >= move_units {
 										top_left_col -= move_units;
 									}
 								}
@@ -299,7 +305,7 @@ pub fn main() {
 
 		let TextureQuery { width, height, .. } = texture.query();
 
-		let _ = canvas.copy(&texture, None, Some(Rect::new(H_MARGIN as i32, (V_MARGIN - height) as i32  , width, height)));
+		let _ = canvas.copy(&texture, None, Some(Rect::new(H_MARGIN as i32, (V_MARGIN - height - 5) as i32  , width, height)));
 		
 		population_amount = draw_current_generation(&mut canvas, &generation, iterating_generation, top_left_row, top_left_col);
 
@@ -326,8 +332,6 @@ pub fn main() {
 
 		
 		canvas.present();
-
-		
 	}
 }
 
@@ -360,6 +364,12 @@ fn draw_current_generation(canvas : &mut sdl2::render::Canvas<sdl2::video::Windo
 				let drawing_rect = Rect::new((H_MARGIN + j * SIZE) as i32, (V_MARGIN + i * SIZE) as i32, SIZE, SIZE);
 				let _ = canvas.fill_rect(drawing_rect);
 				population += 1;
+			} else {
+				if (((tl_row+i)/GRID_BIG_CELL_SIZE)%2 == 0 && ((tl_col+j)/GRID_BIG_CELL_SIZE)%2 == 0) || (((tl_row+i)/GRID_BIG_CELL_SIZE)%2 != 0 && ((tl_col+j)/GRID_BIG_CELL_SIZE)%2 != 0 ) {
+					canvas.set_draw_color(Color::RGB(20, 20, 20));
+					let drawing_rect = Rect::new((H_MARGIN + j * SIZE) as i32, (V_MARGIN + i * SIZE) as i32, SIZE, SIZE);
+					let _ = canvas.fill_rect(drawing_rect);
+				}
 			}
 		}
 	}
