@@ -18,16 +18,19 @@ use sdl2::render::TextureQuery;
 
 const ITERATION_COOLDOWN : Duration = std::time::Duration::from_millis(200);
 
-const COLS: u32 = 80;
-const ROWS: u32 = 60;
+const COLS: u32 = 800;
+const ROWS: u32 = 800;
 const SIZE: u32 = 10;
+
+const VIEW_COLS : u32 = 80;
+const VIEW_ROWS : u32 = 60;
 
 const H_MARGIN : u32 = 20;
 const V_MARGIN : u32 = 40;
-const TOOLBAR_HEIGHT : u32 = 100;
+const TOOLBAR_HEIGHT : u32 = 30;
 
-const TOTAL_WIDTH: u32 = COLS * SIZE + H_MARGIN * 2;
-const TOTAL_HEIGHT: u32 = ROWS * SIZE + V_MARGIN * 2 + TOOLBAR_HEIGHT;
+const TOTAL_WIDTH: u32 = VIEW_COLS * SIZE + H_MARGIN * 2;
+const TOTAL_HEIGHT: u32 = VIEW_ROWS * SIZE + V_MARGIN * 2 + TOOLBAR_HEIGHT;
 
 
 
@@ -35,6 +38,7 @@ const COLOR_GREEN: Color = Color::RGB(87, 171, 90);
 const COLOR_YELLOW: Color = Color::RGB(218, 170, 63);
 const COLOR_RED: Color = Color::RGB(229, 83, 75);
 const COLOR_BLUE: Color = Color::RGB(82, 155, 245);
+
 
 #[derive(PartialEq)]
 enum Tool {
@@ -70,6 +74,10 @@ pub fn main() {
 
 	let mut active_tool : Tool = Tool::PENCIL;
 
+
+	let mut top_left_col : u32 = 20;
+	let mut top_left_row : u32 = 20;
+
 	let mut iterating_generation = false;
 	let mut generation = vec![vec![false; COLS as usize]; ROWS as usize];
 	let mut previous_generation = vec![vec![false; COLS as usize]; ROWS as usize];
@@ -77,21 +85,24 @@ pub fn main() {
 	let mut population_amount = 0;
 	let mut last_interation = std::time::Instant::now();
 
-	let mut btn_start_simulation 		= button::Button::new(COLOR_GREEN, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + ROWS*SIZE) as i32, 70, 30), "Start".to_string());
-	let mut btn_pause_resume_simulation = button::Button::new(COLOR_YELLOW, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + ROWS*SIZE) as i32, 70, 30), "Pause".to_string());
-	let mut btn_abort_simulation 		= button::Button::new(COLOR_RED, Rect::new(H_MARGIN as i32 + 80, (V_MARGIN + 5 + ROWS*SIZE) as i32, 70, 30), "Abort".to_string());
-	let mut btn_abort_n_save_simulation = button::Button::new(COLOR_RED, Rect::new(H_MARGIN as i32 + 160, (V_MARGIN + 5 + ROWS*SIZE) as i32, 190, 30), "Abort and save state".to_string());
-	let mut btn_clear_generation 		= button::Button::new(COLOR_BLUE, Rect::new((H_MARGIN + COLS*SIZE) as i32 - 150, (V_MARGIN + 5 + ROWS*SIZE) as i32, 150, 30), "Clear population".to_string());
+	let mut btn_start_simulation 		= button::Button::new(COLOR_GREEN, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + VIEW_ROWS*SIZE) as i32, 70, 30), "Start".to_string());
+	let mut btn_pause_resume_simulation = button::Button::new(COLOR_YELLOW, Rect::new(H_MARGIN as i32, (V_MARGIN + 5 + VIEW_ROWS*SIZE) as i32, 70, 30), "Pause".to_string());
+	let mut btn_abort_simulation 		= button::Button::new(COLOR_RED, Rect::new(H_MARGIN as i32 + 80, (V_MARGIN + 5 + VIEW_ROWS*SIZE) as i32, 70, 30), "Abort".to_string());
+	let mut btn_abort_n_save_simulation = button::Button::new(COLOR_RED, Rect::new(H_MARGIN as i32 + 160, (V_MARGIN + 5 + VIEW_ROWS*SIZE) as i32, 190, 30), "Abort and save state".to_string());
+	let mut btn_clear_generation 		= button::Button::new(COLOR_BLUE, Rect::new((H_MARGIN + VIEW_COLS*SIZE) as i32 - 150, (V_MARGIN + 5 + VIEW_ROWS*SIZE) as i32, 150, 30), "Clear population".to_string());
 	btn_pause_resume_simulation.set_hidden(true);
 	btn_abort_simulation.set_hidden(true);
 	btn_abort_n_save_simulation.set_hidden(true);
 	
-
-	let mut btn_tool_pencil = button_icon::ButtonIcon::new(Rect::new((H_MARGIN + COLS*SIZE) as i32 - 190 - 70, (V_MARGIN + 5 + ROWS*SIZE) as i32, 30, 30), "./icons/pencil.bmp".to_string());
-	let mut btn_tool_eraser = button_icon::ButtonIcon::new(Rect::new((H_MARGIN + COLS*SIZE) as i32 - 190 - 35, (V_MARGIN + 5 + ROWS*SIZE) as i32, 30, 30), "./icons/eraser.bmp".to_string());
-	let mut btn_tool_hand 	= button_icon::ButtonIcon::new(Rect::new((H_MARGIN + COLS*SIZE) as i32 - 190,	  (V_MARGIN + 5 + ROWS*SIZE) as i32, 30, 30), "./icons/hand.bmp".to_string());
+	
+	let mut btn_tool_pencil = button_icon::ButtonIcon::new(Rect::new((H_MARGIN + VIEW_COLS*SIZE) as i32 - 190 - 70, (V_MARGIN + 5 + VIEW_ROWS*SIZE) as i32, 30, 30), "./icons/pencil.bmp".to_string());
+	let mut btn_tool_eraser = button_icon::ButtonIcon::new(Rect::new((H_MARGIN + VIEW_COLS*SIZE) as i32 - 190 - 35, (V_MARGIN + 5 + VIEW_ROWS*SIZE) as i32, 30, 30), "./icons/eraser.bmp".to_string());
+	let mut btn_tool_hand 	= button_icon::ButtonIcon::new(Rect::new((H_MARGIN + VIEW_COLS*SIZE) as i32 - 190,	  (V_MARGIN + 5 + VIEW_ROWS*SIZE) as i32, 30, 30), "./icons/hand.bmp".to_string());
 	btn_tool_pencil.set_active(true);
 
+
+	let mut dragging = false;
+	let mut dragging_start = (-1, -1);
 
 	let mut font = ttf_context.load_font("./fonts/EnvyCodeR_bold.ttf", 15).unwrap();
 	font.set_style(sdl2::ttf::FontStyle::BOLD);
@@ -100,19 +111,34 @@ pub fn main() {
 		for event in event_pump.poll_iter() {
 			match event {
 				Event::Quit { .. } => break 'running,
+				Event::MouseButtonUp { .. } => {
+					if dragging {
+						dragging = false
+					}
+				},
 				Event::MouseButtonDown { x, y, .. } => {
+					if active_tool == Tool::HAND {
+						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
+						let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
+
+						if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
+							dragging = true;
+							dragging_start = (x, y);
+						}
+					}
+
 					if !iterating_generation {
 						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
 						let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
 
-						if i >= 0 && i < ROWS as i32 && j >= 0 && j < COLS as i32 {
+						if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
 							if active_tool == Tool::PENCIL {
-								generation[i as usize][j as usize] = true;
+								println!("Click en ({}, {})", (top_left_row as i32 + i), (top_left_col as i32 + j));
+								generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = true;
 							} else if active_tool == Tool::ERASER {
-								generation[i as usize][j as usize] = false;
+								generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = false;
 							}
 						}
-
 					}
 
 					if btn_start_simulation.is_hovered() {
@@ -175,7 +201,6 @@ pub fn main() {
 						btn_clear_generation.set_hidden(false);
 						btn_tool_pencil.set_hidden(false);
 						btn_tool_eraser.set_hidden(false);
-						btn_tool_hand.set_hidden(false);
 					} else {
 						btn_start_simulation.set_hidden(true);
 						btn_clear_generation.set_hidden(true);
@@ -184,7 +209,6 @@ pub fn main() {
 						btn_abort_n_save_simulation.set_hidden(false);
 						btn_tool_pencil.set_hidden(true);
 						btn_tool_eraser.set_hidden(true);
-						btn_tool_hand.set_hidden(true);
 					}
 
 				},
@@ -193,14 +217,61 @@ pub fn main() {
 						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
 						let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
 
-						if i >= 0 && i < ROWS as i32 && j >= 0 && j < COLS as i32 {
+						if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
 							if active_tool == Tool::PENCIL {
-								generation[i as usize][j as usize] = true;
+								println!("Click en ({}, {})", (top_left_row as i32 + i), (top_left_col as i32 + j));
+								generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = true;
 							} else if active_tool == Tool::ERASER {
-								generation[i as usize][j as usize] = false;
+								generation[(top_left_row as i32 + i) as usize][(top_left_col as i32 + j)  as usize] = false;
 							}
 						}
 
+					}
+
+					if active_tool == Tool::HAND && dragging {
+						let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
+						let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
+
+						if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
+							let dragging_end = (x, y);
+		
+							let difference_x = - (dragging_end.0 - dragging_start.0);
+							let difference_y = - (dragging_end.1 - dragging_start.1);
+
+							let threshold = 0;
+
+							let mut new_x = dragging_start.0;
+							let mut new_y = dragging_start.1;
+
+
+							let move_units = 1;
+							if difference_y.abs() as u32 > SIZE {
+								if difference_y > 0 {
+									if top_left_row + move_units < ROWS-VIEW_ROWS {
+										top_left_row += move_units;
+									}
+								} else if difference_y < 0 {
+									if top_left_row > move_units {
+										top_left_row -= move_units;
+									}
+								}
+								new_y = y;
+							}
+							if difference_x.abs() as u32 > SIZE {
+								if difference_x > 0 {
+									if top_left_col + move_units < COLS-VIEW_COLS {
+										top_left_col += move_units;
+									}
+								} else if difference_x < 0 {
+									if top_left_col > move_units {
+										top_left_col -= move_units;
+									}
+								}
+								new_x = x;
+							}
+
+							dragging_start = (new_x, new_y);
+						}
 					}
 
 					
@@ -213,7 +284,6 @@ pub fn main() {
 					btn_tool_pencil.update_hover(x, y);
 					btn_tool_eraser.update_hover(x, y);
 					btn_tool_hand.update_hover(x, y);
-					
 
 				}
 				_ => {}
@@ -225,7 +295,7 @@ pub fn main() {
 
 
 		
-		let surface = font.render(format!("Generation: {} :: Population: {}  [current_tool={}]", generation_number, population_amount, active_tool.to_string()).as_str())
+		let surface = font.render(format!("Generation: {} :: Population: {}  [current_tool={}] [i:{}, j:{}]", generation_number, population_amount, active_tool.to_string(), top_left_row, top_left_col).as_str())
 			.blended(Color::RGBA(255, 255 ,255, 255)).unwrap();
 		let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
 
@@ -233,7 +303,7 @@ pub fn main() {
 
 		let _ = canvas.copy(&texture, None, Some(Rect::new(H_MARGIN as i32, (V_MARGIN - height) as i32  , width, height)));
 		
-		population_amount = draw_current_generation(&mut canvas, &generation, iterating_generation);
+		population_amount = draw_current_generation(&mut canvas, &generation, iterating_generation, top_left_row, top_left_col);
 
 		if iterating_generation && last_interation.elapsed() > ITERATION_COOLDOWN {
 			generation = iterate_generation(&generation);
@@ -266,28 +336,28 @@ pub fn main() {
 
 fn draw_lines(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>) {
 	canvas.set_draw_color(Color::RGB(40, 40, 40));
-	for i in 1..COLS {
+	for i in 1..VIEW_COLS {
 		let start_point = Point::new((H_MARGIN + SIZE * i) as i32, V_MARGIN as i32);
-		let end_point = Point::new((H_MARGIN + SIZE * i) as i32, (V_MARGIN + (ROWS * SIZE)-1) as i32);
+		let end_point = Point::new((H_MARGIN + SIZE * i) as i32, (V_MARGIN + (VIEW_ROWS * SIZE)-1) as i32);
 		let _ = canvas.draw_line(start_point, end_point);
 	}
-	for i in 1..ROWS {
+	for i in 1..VIEW_ROWS {
 		let start_point = Point::new(H_MARGIN as i32, (V_MARGIN + SIZE * i) as i32);
-		let end_point = Point::new((H_MARGIN + (COLS * SIZE)-1) as i32, (V_MARGIN + SIZE * i) as i32);
+		let end_point = Point::new((H_MARGIN + (VIEW_COLS * SIZE)-1) as i32, (V_MARGIN + SIZE * i) as i32);
 		let _ = canvas.draw_line(start_point, end_point);
 	}
 }
 
 fn draw_outerlines(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>) {
 	canvas.set_draw_color(Color::RGB(80, 80, 80));
-	let _ = canvas.draw_rect(Rect::new(H_MARGIN as i32, V_MARGIN as i32, COLS * SIZE, ROWS * SIZE));
+	let _ = canvas.draw_rect(Rect::new(H_MARGIN as i32, V_MARGIN as i32, VIEW_COLS * SIZE, VIEW_ROWS * SIZE));
 }
 
-fn draw_current_generation(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, generation : &Vec<Vec<bool>>, iterating : bool) -> u32 {
+fn draw_current_generation(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, generation : &Vec<Vec<bool>>, iterating : bool, tl_row: u32, tl_col: u32) -> u32 {
 	let mut population = 0;
-	for i in 0..ROWS {
-		for j in 0..COLS {
-			if generation[i as usize][j as usize] == true {
+	for i in 0..VIEW_ROWS {
+		for j in 0..VIEW_COLS {
+			if generation[(tl_row + i) as usize][(tl_col + j) as usize] == true {
 				canvas.set_draw_color(Color::RGB(if iterating { 0 } else { 255 }, if iterating { 255 } else {0}, 0));
 				let drawing_rect = Rect::new((H_MARGIN + j * SIZE) as i32, (V_MARGIN + i * SIZE) as i32, SIZE, SIZE);
 				let _ = canvas.fill_rect(drawing_rect);
