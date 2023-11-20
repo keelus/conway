@@ -1,7 +1,7 @@
 <h1 align="center">Conway's Game Of Life</h1>
 
 <p align="center">
-  <a href="./LICENSE.md"><img src="https://img.shields.io/badge⚖️ license-MIT-blue" alt="MIT License"></a>
+  <a href="./LICENSE.md"><img src="https://img.shields.io/badge/⚖️ license-MIT-blue" alt="MIT License"></a>
   <img src="https://img.shields.io/github/stars/keelus/conway?color=red&logo=github" alt="stars">
 </p>
 
