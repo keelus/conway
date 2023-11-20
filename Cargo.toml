@@ -2,7 +2,7 @@
 name = "conway"
 description = "Conway's Game Of Life implementation in rust."
 authors = ["keelus"]
-version = "0.9.0"
+version = "1.0.0"
 edition = "2021"
 repository = "https://github.com/keelus/conway"
 license = "MIT"

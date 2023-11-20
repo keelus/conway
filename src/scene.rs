@@ -133,6 +133,7 @@ impl<'s> Scene<'s> {
 		self.set_tool(Tool::PENCIL);
 
 		self.main_font = Some(font);
+		self.load_start_generation();
 	}
 
 	pub fn handle_events<'h>(&mut self, event_iterator: sdl2::event::EventPollIterator<'h>) -> bool {
@@ -291,6 +292,74 @@ impl<'s> Scene<'s> {
 			}
 		}
 		return false;
+	}
+	
+	pub fn load_start_generation(&mut self){
+		
+		// GLIDER GUN START
+		self.generation[44][48] = true;
+
+		self.generation[45][46] = true;
+		self.generation[45][48] = true;
+
+		self.generation[46][36] = true;
+		self.generation[46][37] = true;
+		self.generation[46][44] = true;
+		self.generation[46][45] = true;
+		self.generation[46][58] = true;
+		self.generation[46][59] = true;
+
+		self.generation[47][35] = true;
+		self.generation[47][39] = true;
+		self.generation[47][44] = true;
+		self.generation[47][45] = true;
+		self.generation[47][58] = true;
+		self.generation[47][59] = true;
+		
+		self.generation[48][24] = true;
+		self.generation[48][25] = true;
+		self.generation[48][34] = true;
+		self.generation[48][40] = true;
+		self.generation[48][44] = true;
+		self.generation[48][45] = true;
+
+		self.generation[49][34] = true;
+		self.generation[49][38] = true;
+		self.generation[49][40] = true;
+		self.generation[49][41] = true;
+		self.generation[49][46] = true;
+		self.generation[49][48] = true;
+		self.generation[49][24] = true;
+		self.generation[49][25] = true;
+		
+		self.generation[50][34] = true;
+		self.generation[50][40] = true;
+		self.generation[50][48] = true;
+		
+		self.generation[51][35] = true;
+		self.generation[51][39] = true;
+		
+		self.generation[52][36] = true;
+		self.generation[52][37] = true;
+		// GLIDER GUN END
+
+		// LWSS START
+		self.generation[67][51] = true;
+		self.generation[67][52] = true;
+		
+		self.generation[68][50] = true;
+		self.generation[68][51] = true;
+		self.generation[68][53] = true;
+		self.generation[68][54] = true;
+		
+		self.generation[69][51] = true;
+		self.generation[69][52] = true;
+		self.generation[69][53] = true;
+		self.generation[69][54] = true;
+		
+		self.generation[70][52] = true;
+		self.generation[70][53] = true;
+		// LWSS END
 	}
 
 	pub fn iteration(&mut self) {
