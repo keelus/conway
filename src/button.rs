@@ -33,7 +33,7 @@ impl Button {
 		}
 	}
 
-	pub fn draw(&self, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, font: &mut Font) {
+	pub fn draw(&self, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, font: &Font) {
 		if !self.hidden {
 			let surface = font.render(self.text.as_str())
 				.blended(Color::RGBA(255, 255 ,255, 255)).unwrap();

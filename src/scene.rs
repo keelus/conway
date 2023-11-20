@@ -1,8 +1,6 @@
 extern crate sdl2;
 
-
 use core::fmt;
-use std::time::Duration;
 use std::time::Instant;
 
 use sdl2::event::Event;
@@ -11,6 +9,7 @@ use sdl2::pixels::Color;
 use sdl2::rect::Point;
 use sdl2::rect::Rect;
 use sdl2::render::TextureQuery;
+use sdl2::ttf::Font;
 
 use crate::button;
 use crate::button::Button;
@@ -18,19 +17,15 @@ use crate::button_icon;
 use crate::button_icon::ButtonIcon;
 
 
-const ITERATION_COOLDOWN : Duration = std::time::Duration::from_millis(200);
 
-const COLS: u32 = 100;
-const ROWS: u32 = 100;
-const SIZE: u32 = 10;
-
-const VIEW_COLS : u32 = 80;
-const VIEW_ROWS : u32 = 60;
-
-const GRID_BIG_CELL_SIZE : u32 = 5;
-
-const H_MARGIN : u32 = 20;
-const V_MARGIN : u32 = 40;
+const BTN_WIDTH: u32 = 70;
+const BTN_H_MARGIN: u32 = 10;
+const BTN_ABORT_N_SAVE_WIDTH: u32 = 190;
+const BTN_CLEAR_WIDTH: u32 = 150;
+const BTN_HEIGHT: u32 = 30;
+const BTN_SQUARE_SIZE: u32 = BTN_HEIGHT;
+const BTN_SQUARE_H_MARGIN: u32 = 5;
+const GRID_BOTTOM_MARGIN: u32 = 5;
 
 
 #[derive(PartialEq)]
@@ -51,27 +46,31 @@ impl fmt::Display for Tool {
 	}
 }
 
+#[derive(PartialEq, Clone, Copy)]
+enum State {
+	IDLE,
+	ITERATING,
+	PAUSE
+}
 
 
-pub struct Scene {
+
+pub struct Scene<'scene> {
 	canvas: sdl2::render::Canvas<sdl2::video::Window>,
-	ttf_context: sdl2::ttf::Sdl2TtfContext,
-	
 	
 	texture_creator: sdl2::render::TextureCreator<sdl2::video::WindowContext>,
 
 	active_tool: Tool,
 	
-	
 	top_left_col: u32,
 	top_left_row: u32,
 	
-	iterating_generation: bool,
+	state: State,
 	generation: Vec<Vec<bool>>,
 	previous_generation: Vec<Vec<bool>>,
 	generation_number: i32,
 	population_amount: u32,
-	last_interation: Instant,
+	last_iteration: Instant,
 
 	btn_start_simulation: Button,
 	btn_pause_resume_simulation: Button,
@@ -85,118 +84,55 @@ pub struct Scene {
 
 	dragging: bool,
 	dragging_start: (i32, i32),
+
+	main_font: Option<Font<'scene, 'static>>
 }
 
-impl Scene {
+impl<'s> Scene<'s> {
 	pub fn new(canvas: sdl2::render::Canvas<sdl2::video::Window>) -> Self {
 		let texture_creator = canvas.texture_creator();
-
-		let active_tool : Tool = Tool::PENCIL;
 	
-	
-		let top_left_col : u32 = (crate::COLS - crate::VIEW_COLS)/2;
-		let top_left_row : u32 = (crate::ROWS - crate::VIEW_ROWS)/2;
-	
-		let iterating_generation = false;
 		let generation = vec![vec![false; crate::COLS as usize]; crate::ROWS as usize];
 		let previous_generation = vec![vec![false; crate::COLS as usize]; crate::ROWS as usize];
-		let generation_number = 0;
-		let population_amount = 0;
-		let last_interation = std::time::Instant::now();
 	
-		let btn_start_simulation 		= button::Button::new(crate::COLOR_GREEN, Rect::new(crate::H_MARGIN as i32, (crate::V_MARGIN + 5 + crate::VIEW_ROWS*crate::SIZE) as i32, 70, 30), "Start".to_string());
-		let mut btn_pause_resume_simulation = button::Button::new(crate::COLOR_YELLOW, Rect::new(crate::H_MARGIN as i32, (crate::V_MARGIN + 5 + crate::VIEW_ROWS*crate::SIZE) as i32, 70, 30), "Pause".to_string());
-		let mut btn_abort_simulation 		= button::Button::new(crate::COLOR_RED, Rect::new(crate::H_MARGIN as i32 + 80, (crate::V_MARGIN + 5 + crate::VIEW_ROWS*crate::SIZE) as i32, 70, 30), "Abort".to_string());
-		let mut btn_abort_n_save_simulation = button::Button::new(crate::COLOR_RED, Rect::new(crate::H_MARGIN as i32 + 160, (crate::V_MARGIN + 5 + crate::VIEW_ROWS*crate::SIZE) as i32, 190, 30), "Abort and save state".to_string());
-		let btn_clear_generation 		= button::Button::new(crate::COLOR_BLUE, Rect::new((crate::H_MARGIN + crate::VIEW_COLS*crate::SIZE) as i32 - 150, (crate::V_MARGIN + 5 + crate::VIEW_ROWS*crate::SIZE) as i32, 150, 30), "Clear population".to_string());
-		btn_pause_resume_simulation.set_hidden(true);
-		btn_abort_simulation.set_hidden(true);
-		btn_abort_n_save_simulation.set_hidden(true);
-		
-		let mut btn_tool_pencil = button_icon::ButtonIcon::new(Rect::new((crate::H_MARGIN + crate::VIEW_COLS*crate::SIZE) as i32 - 190 - 70, (crate::V_MARGIN + 5 + crate::VIEW_ROWS*crate::SIZE) as i32, 30, 30), "./icons/pencil.bmp".to_string());
-		let btn_tool_eraser = button_icon::ButtonIcon::new(Rect::new((crate::H_MARGIN + crate::VIEW_COLS*crate::SIZE) as i32 - 190 - 35, (crate::V_MARGIN + 5 + crate::VIEW_ROWS*crate::SIZE) as i32, 30, 30), "./icons/eraser.bmp".to_string());
-		let btn_tool_hand 	= button_icon::ButtonIcon::new(Rect::new((crate::H_MARGIN + crate::VIEW_COLS*crate::SIZE) as i32 - 190,	  (crate::V_MARGIN + 5 + crate::VIEW_ROWS*crate::SIZE) as i32, 30, 30), "./icons/hand.bmp".to_string());
-		btn_tool_pencil.set_active(true);
-	
-	
-		let dragging = false;
-		let dragging_start = (-1, -1);
-	
-	
-		let ttf_context: sdl2::ttf::Sdl2TtfContext = sdl2::ttf::init().unwrap();
-
-
 		Self {
-			canvas,
+			canvas: canvas,
 			texture_creator,
-			ttf_context,
 
-			active_tool,
+			active_tool: Tool::PENCIL,
 
-			top_left_col,
-			top_left_row,
+			top_left_col: (crate::COLS - crate::VIEW_COLS)/2,
+			top_left_row: (crate::ROWS - crate::VIEW_ROWS)/2,
 
-			iterating_generation,
+			state: State::IDLE,
 			generation,
 			previous_generation,
-			generation_number,
-			population_amount,
-			last_interation,
+			generation_number: 0,
+			population_amount: 0,
+			last_iteration: std::time::Instant::now(),
 
-			btn_start_simulation,
-			btn_pause_resume_simulation,
-			btn_abort_simulation,
-			btn_abort_n_save_simulation,
-			btn_clear_generation,
+			btn_start_simulation:	button::Button::new(crate::COLOR_GREEN, Rect::new(crate::H_MARGIN as i32, (crate::V_MARGIN + GRID_BOTTOM_MARGIN + crate::GRID_HEIGHT) as i32, BTN_WIDTH, BTN_HEIGHT), "Start".to_string()),
+			btn_pause_resume_simulation:	button::Button::new(crate::COLOR_YELLOW,Rect::new(crate::H_MARGIN as i32, (crate::V_MARGIN + GRID_BOTTOM_MARGIN + crate::GRID_HEIGHT) as i32, BTN_WIDTH, BTN_HEIGHT), "Pause".to_string()),
+			btn_abort_simulation:	button::Button::new(crate::COLOR_RED,	Rect::new((crate::H_MARGIN + BTN_WIDTH+BTN_H_MARGIN) as i32, (crate::V_MARGIN + GRID_BOTTOM_MARGIN + crate::GRID_HEIGHT) as i32, BTN_WIDTH, BTN_HEIGHT), "Abort".to_string()),
+			btn_abort_n_save_simulation:	button::Button::new(crate::COLOR_RED,	Rect::new((crate::H_MARGIN + (BTN_WIDTH+BTN_H_MARGIN)*2) as i32, (crate::V_MARGIN + GRID_BOTTOM_MARGIN + crate::GRID_HEIGHT) as i32, BTN_ABORT_N_SAVE_WIDTH, BTN_HEIGHT), "Abort and save state".to_string()),
+			btn_clear_generation:	button::Button::new(crate::COLOR_BLUE,	Rect::new((crate::H_MARGIN + crate::GRID_WIDTH - BTN_CLEAR_WIDTH) as i32, (crate::V_MARGIN + GRID_BOTTOM_MARGIN + crate::GRID_HEIGHT) as i32, BTN_CLEAR_WIDTH, BTN_HEIGHT), "Clear population".to_string()),
 
-			btn_tool_pencil,
-			btn_tool_eraser,
-			btn_tool_hand,
+			btn_tool_pencil: 	button_icon::ButtonIcon::new(Rect::new((crate::H_MARGIN + crate::GRID_WIDTH - BTN_CLEAR_WIDTH - BTN_H_MARGIN - BTN_SQUARE_SIZE*3 - BTN_SQUARE_H_MARGIN*2) as i32, (crate::V_MARGIN + GRID_BOTTOM_MARGIN + crate::GRID_HEIGHT) as i32, BTN_SQUARE_SIZE, BTN_SQUARE_SIZE), "./icons/pencil.bmp".to_string()),
+			btn_tool_eraser:	button_icon::ButtonIcon::new(Rect::new((crate::H_MARGIN + crate::GRID_WIDTH - BTN_CLEAR_WIDTH - BTN_H_MARGIN - BTN_SQUARE_SIZE*2 - BTN_SQUARE_H_MARGIN) as i32, (crate::V_MARGIN + GRID_BOTTOM_MARGIN + crate::GRID_HEIGHT) as i32, BTN_SQUARE_SIZE, BTN_SQUARE_SIZE), "./icons/eraser.bmp".to_string()),
+			btn_tool_hand:		button_icon::ButtonIcon::new(Rect::new((crate::H_MARGIN + crate::GRID_WIDTH - BTN_CLEAR_WIDTH - BTN_H_MARGIN - BTN_SQUARE_SIZE) as i32, (crate::V_MARGIN + GRID_BOTTOM_MARGIN + crate::GRID_HEIGHT) as i32, BTN_SQUARE_SIZE, BTN_SQUARE_SIZE), "./icons/hand.bmp".to_string()),
 
-			dragging,
-			dragging_start
+			dragging: false,
+			dragging_start: (-1, -1),
+
+			main_font: None
 		}
 	}
-	pub fn iteration(&mut self) {
-		let mut main_font = self.ttf_context.load_font("./fonts/EnvyCodeR_bold.ttf", 15).unwrap(); // TODO: Move this
-		main_font.set_style(sdl2::ttf::FontStyle::BOLD);
+	
+	pub fn initialize(&mut self, font: Font<'s, 'static>) {
+		self.set_state(State::IDLE);
+		self.set_tool(Tool::PENCIL);
 
-		self.canvas.set_draw_color(Color::RGB(0, 0, 0));
-		self.canvas.clear();
-
-
-		
-		let surface = main_font.render(format!("Generation: {} :: Population: {}  [current_tool={}] [i:{}, j:{}]", self.generation_number, self.population_amount, self.active_tool.to_string(), self.top_left_row, self.top_left_col).as_str())
-			.blended(Color::RGBA(255, 255 ,255, 255)).unwrap();
-		let texture = self.texture_creator.create_texture_from_surface(&surface).unwrap();
-
-		let TextureQuery { width, height, .. } = texture.query();
-
-		let _ = self.canvas.copy(&texture, None, Some(Rect::new(crate::H_MARGIN as i32, (V_MARGIN - height - 5) as i32  , width, height)));
-		
-		self.population_amount = draw_current_generation(&mut self.canvas, &self.generation, self.iterating_generation, self.top_left_row, self.top_left_col);
-
-		if self.iterating_generation && self.last_interation.elapsed() > ITERATION_COOLDOWN {
-			self.generation = iterate_generation(&self.generation);
-			self.generation_number += 1;
-			self.last_interation = std::time::Instant::now();
-		}
-
-		draw_lines(&mut self.canvas);
-		draw_outerlines(&mut self.canvas);
-
-
-		self.btn_start_simulation.draw(&mut self.canvas, &mut main_font);
-		self.btn_pause_resume_simulation.draw(&mut self.canvas, &mut main_font);
-		self.btn_clear_generation.draw(&mut self.canvas, &mut main_font);
-		self.btn_abort_simulation.draw(&mut self.canvas, &mut main_font);
-		self.btn_abort_n_save_simulation.draw(&mut self.canvas, &mut main_font);
-		
-		self.btn_tool_pencil.draw(&mut self.canvas);
-		self.btn_tool_eraser.draw(&mut self.canvas);
-		self.btn_tool_hand.draw(&mut self.canvas);
-
-		self.canvas.present();
+		self.main_font = Some(font);
 	}
 
 	pub fn handle_events<'h>(&mut self, event_iterator: sdl2::event::EventPollIterator<'h>) -> bool {
@@ -204,9 +140,7 @@ impl Scene {
 			match event {
 				Event::Quit { .. } => return true,
 				Event::MouseButtonUp { .. } => {
-					if self.dragging {
-						self.dragging = false
-					}
+					self.dragging = false
 				},
 				Event::MouseButtonDown { x, y, mouse_btn, .. } => {
 					match mouse_btn {
@@ -219,7 +153,7 @@ impl Scene {
 								}
 							}
 	
-							if !self.iterating_generation {
+							if self.state != State::ITERATING { // Allow draw on Idle or Pause states
 								let (indexes, clicked_canvas) = get_click_indexes(x, y);
 								if clicked_canvas {
 									if self.active_tool == Tool::PENCIL {
@@ -231,70 +165,41 @@ impl Scene {
 							}
 	
 							if self.btn_start_simulation.is_hovered() {
-								self.iterating_generation = true;
+								self.set_state(State::ITERATING);
 								self.previous_generation = self.generation.clone();
 								self.btn_pause_resume_simulation.set_text("Pause".to_string());
-								self.active_tool = Tool::HAND;
-								self.btn_tool_hand.set_active(true);
-								self.btn_tool_pencil.set_active(false);
-								self.btn_tool_eraser.set_active(false);
-							} else if self.btn_pause_resume_simulation.is_hovered() {
-								self.iterating_generation = !self.iterating_generation;
-	
-								if self.iterating_generation {
+								self.set_tool(Tool::HAND);
+							} else if self.btn_pause_resume_simulation.is_hovered() {	
+								if self.state == State::PAUSE {
+									self.set_state(State::ITERATING);
 									self.btn_pause_resume_simulation.set_text("Pause".to_string());
-									self.active_tool = Tool::HAND;
-									self.btn_tool_hand.set_active(true);
-									self.btn_tool_pencil.set_active(false);
-									self.btn_tool_eraser.set_active(false);
-								} else {
+									self.set_tool(Tool::HAND);
+								} else if self.state == State::ITERATING {
+									self.set_state(State::PAUSE);
 									self.btn_pause_resume_simulation.set_text("Resume".to_string());
-									self.active_tool = Tool::PENCIL;
-									self.btn_tool_pencil.set_active(true);
-									self.btn_tool_hand.set_active(false);
-									self.btn_tool_eraser.set_active(false);
+									self.set_tool(Tool::PENCIL);
 								}
-	
 							} else if self.btn_abort_simulation.is_hovered() {
-								self.iterating_generation = false;
+								self.set_state(State::IDLE);
 	
 								self.generation = self.previous_generation.clone();
 								self.generation_number = 0;
-								self.active_tool = Tool::PENCIL;
-								self.btn_tool_pencil.set_active(true);
-								self.btn_tool_hand.set_active(false);
-								self.btn_tool_eraser.set_active(false);
+								self.set_tool(Tool::PENCIL);
 							} else if self.btn_abort_n_save_simulation.is_hovered() {
-								self.iterating_generation = false;
-	
+								self.set_state(State::IDLE);
 								self.generation_number = 0;
-								self.active_tool = Tool::PENCIL;
-								self.btn_tool_pencil.set_active(true);
-								self.btn_tool_hand.set_active(false);
-								self.btn_tool_eraser.set_active(false);
+								self.set_tool(Tool::PENCIL);
 							} else if self.btn_clear_generation.is_hovered() {
-								self.generation = vec![vec![false; COLS as usize]; ROWS as usize];
+								self.generation = vec![vec![false; crate::COLS as usize]; crate::ROWS as usize];
 							} else if self.btn_tool_pencil.is_hovered() {
-								self.active_tool = Tool::PENCIL;
-	
-								self.btn_tool_pencil.set_active(true);
-								self.btn_tool_eraser.set_active(false);
-								self.btn_tool_hand.set_active(false);
+								self.set_tool(Tool::PENCIL);
 							} else if self.btn_tool_eraser.is_hovered() {
-								self.active_tool = Tool::ERASER;
-								
-								self.btn_tool_pencil.set_active(false);
-								self.btn_tool_eraser.set_active(true);
-								self.btn_tool_hand.set_active(false);
+								self.set_tool(Tool::ERASER);
 							} else if self.btn_tool_hand.is_hovered() {
-								self.active_tool = Tool::HAND;
-								
-								self.btn_tool_pencil.set_active(false);
-								self.btn_tool_eraser.set_active(false);
-								self.btn_tool_hand.set_active(true);
+								self.set_tool(Tool::HAND);
 							}
 							
-							if !self.iterating_generation {
+							if self.state != State::ITERATING {
 								if self.generation_number == 0 {
 									self.btn_start_simulation.set_hidden(false);
 									self.btn_pause_resume_simulation.set_hidden(true);
@@ -320,11 +225,7 @@ impl Scene {
 							}
 						},
 						MouseButton::Middle => {
-							self.active_tool = Tool::HAND;
-							self.btn_tool_hand.set_active(true);
-							self.btn_tool_pencil.set_active(false);
-							self.btn_tool_eraser.set_active(false);
-	
+							self.set_tool(Tool::HAND);
 							
 							let (_, clicked_canvas) = get_click_indexes(x, y);
 							if clicked_canvas {
@@ -336,17 +237,12 @@ impl Scene {
 					}
 				},
 				Event::MouseMotion { x, y, mousestate, ..} => {
-					if !self.iterating_generation && mousestate.is_mouse_button_pressed(MouseButton::Left) {
+					if self.state != State::ITERATING && mousestate.is_mouse_button_pressed(MouseButton::Left) {
 						let (indexes, clicked_canvas) = get_click_indexes(x, y);
-						if clicked_canvas {
-							if self.active_tool == Tool::PENCIL {
-								self.generation[(self.top_left_row as i32 + indexes.0) as usize][(self.top_left_col as i32 + indexes.1)  as usize] = true;
-							} else if self.active_tool == Tool::ERASER {
-								self.generation[(self.top_left_row as i32 + indexes.0) as usize][(self.top_left_col as i32 + indexes.1)  as usize] = false;
-							}
+						if clicked_canvas && self.active_tool != Tool::HAND {
+							self.generation[(self.top_left_row as i32 + indexes.0) as usize][(self.top_left_col as i32 + indexes.1)  as usize] = self.active_tool == Tool::PENCIL;
 						}
 					}
-
 					if self.active_tool == Tool::HAND && self.dragging {
 						let (_, clicked_canvas) = get_click_indexes(x, y);
 						if clicked_canvas {
@@ -358,11 +254,11 @@ impl Scene {
 							let mut new_x = self.dragging_start.0;
 							let mut new_y = self.dragging_start.1;
 
-
 							let move_units = 1;
-							if difference_y.abs() as u32 > SIZE {
+
+							if difference_y.abs() as u32 > crate::SIZE {
 								if difference_y > 0 {
-									if self.top_left_row + move_units < ROWS-VIEW_ROWS {
+									if self.top_left_row + move_units < crate::ROWS-crate::VIEW_ROWS {
 										self.top_left_row += move_units;
 									}
 								} else if difference_y < 0 {
@@ -372,9 +268,10 @@ impl Scene {
 								}
 								new_y = y;
 							}
-							if difference_x.abs() as u32 > SIZE {
+
+							if difference_x.abs() as u32 > crate::SIZE {
 								if difference_x > 0 {
-									if self.top_left_col + move_units < COLS-VIEW_COLS {
+									if self.top_left_col + move_units < crate::COLS-crate::VIEW_COLS {
 										self.top_left_col += move_units;
 									}
 								} else if difference_x < 0 {
@@ -388,95 +285,192 @@ impl Scene {
 							self.dragging_start = (new_x, new_y);
 						}
 					}
-
-					
-					self.btn_start_simulation.update_hover(x, y);
-					self.btn_pause_resume_simulation.update_hover(x, y);
-					self.btn_abort_simulation.update_hover(x, y);
-					self.btn_abort_n_save_simulation.update_hover(x, y);
-					self.btn_clear_generation.update_hover(x, y);
-
-					self.btn_tool_pencil.update_hover(x, y);
-					self.btn_tool_eraser.update_hover(x, y);
-					self.btn_tool_hand.update_hover(x, y);
-
+					self.update_btn_hovers(x, y);
 				}
 				_ => {}
 			}
 		}
 		return false;
 	}
+
+	pub fn iteration(&mut self) {
+		// Clear the window
+		self.canvas.set_draw_color(Color::BLACK);
+		self.canvas.clear();
+		
+		// Draw population & information text
+		{
+			let surface = self.main_font.as_ref().unwrap().render(format!("Generation: {} :: Population: {}", self.generation_number, self.population_amount).as_str())
+				.blended(Color::WHITE).unwrap();
+
+			let surface_2 = self.main_font.as_ref().unwrap().render(format!("[row:{}, col:{}]", self.top_left_row, self.top_left_col).as_str())
+				.blended(crate::COLOR_WHITE).unwrap();
+
+			let texture = self.texture_creator.create_texture_from_surface(&surface).unwrap();
+			let texture_2 = self.texture_creator.create_texture_from_surface(&surface_2).unwrap();
+	
+			let TextureQuery { width, height, .. } = texture.query();
+	
+			let _ = self.canvas.copy(&texture, None, Some(Rect::new(crate::H_MARGIN as i32, (crate::V_MARGIN - height - 5) as i32  , width, height)));
+			
+
+			let TextureQuery { width, height, .. } = texture_2.query();
+	
+			let _ = self.canvas.copy(&texture_2, None, Some(Rect::new((crate::H_MARGIN+crate::GRID_WIDTH - width) as i32, (crate::V_MARGIN - height - 5) as i32  , width, height)));
+		}
+		
+		// Update population amount
+		self.population_amount = self.draw_current_generation();
+
+		// Iterate the generation and count
+		if self.state == State::ITERATING && self.last_iteration.elapsed() > crate::ITERATION_COOLDOWN {
+			self.generation = iterate_generation(&self.generation);
+			self.generation_number += 1;
+			self.last_iteration = std::time::Instant::now();
+		}
+
+		// Draw UI
+		self.draw_lines();
+		self.draw_buttons();
+
+		self.canvas.present();
+	}
+
+	fn set_state(&mut self, new_state: State) {
+		self.state = new_state;
+
+		if new_state == State::IDLE {
+			if self.generation_number == 0 {
+				self.btn_start_simulation.set_hidden(false);
+				self.btn_pause_resume_simulation.set_hidden(true);
+				self.btn_abort_simulation.set_hidden(true);
+				self.btn_abort_n_save_simulation.set_hidden(true);
+			} else {
+				self.btn_start_simulation.set_hidden(true);
+				self.btn_pause_resume_simulation.set_hidden(false);
+				self.btn_abort_simulation.set_hidden(false);
+				self.btn_abort_n_save_simulation.set_hidden(false);
+			}
+			self.btn_clear_generation.set_hidden(false);
+			self.btn_tool_pencil.set_hidden(false);
+			self.btn_tool_eraser.set_hidden(false);
+		} else {
+			self.btn_start_simulation.set_hidden(true);
+			self.btn_clear_generation.set_hidden(true);
+			self.btn_pause_resume_simulation.set_hidden(false);
+			self.btn_abort_simulation.set_hidden(false);
+			self.btn_abort_n_save_simulation.set_hidden(false);
+			self.btn_tool_pencil.set_hidden(true);
+			self.btn_tool_eraser.set_hidden(true);
+		}
+	}
+
+	fn set_tool(&mut self, new_tool: Tool) {
+		self.btn_tool_pencil.set_active(Tool::PENCIL == new_tool);
+		self.btn_tool_eraser.set_active(Tool::ERASER == new_tool);
+		self.btn_tool_hand.set_active(Tool::HAND == new_tool);
+		
+		self.active_tool = new_tool;
+	}
+
+	fn update_btn_hovers(&mut self, x: i32, y: i32) {
+		// Text buttons
+		self.btn_start_simulation.update_hover(x, y);
+		self.btn_pause_resume_simulation.update_hover(x, y);
+		self.btn_abort_simulation.update_hover(x, y);
+		self.btn_abort_n_save_simulation.update_hover(x, y);
+		self.btn_clear_generation.update_hover(x, y);
+
+		// Icon buttons
+		self.btn_tool_pencil.update_hover(x, y);
+		self.btn_tool_eraser.update_hover(x, y);
+		self.btn_tool_hand.update_hover(x, y);
+	}
+
+	fn draw_current_generation(&mut self) -> u32 {
+		let mut population = 0;
+		for row in 0..crate::VIEW_ROWS {
+			for col in 0..crate::VIEW_COLS {
+				if self.generation[(self.top_left_row + row) as usize][(self.top_left_col + col) as usize] == true {
+					self.canvas.set_draw_color(crate::COLOR_WHITE);
+					let drawing_rect = Rect::new((crate::H_MARGIN + col * crate::SIZE) as i32, (crate::V_MARGIN + row * crate::SIZE) as i32, crate::SIZE, crate::SIZE);
+					let _ = self.canvas.fill_rect(drawing_rect);
+					population += 1;
+				} else {
+					if (((self.top_left_row+row)/crate::GRID_BIG_CELL_SIZE)%2 == 0 && ((self.top_left_col+col)/crate::GRID_BIG_CELL_SIZE)%2 == 0) || (((self.top_left_row+row)/crate::GRID_BIG_CELL_SIZE)%2 != 0 && ((self.top_left_col+col)/crate::GRID_BIG_CELL_SIZE)%2 != 0 ) {
+						self.canvas.set_draw_color(crate::COLOR_BLACK_1);
+						let drawing_rect = Rect::new((crate::H_MARGIN + col * crate::SIZE) as i32, (crate::V_MARGIN + row * crate::SIZE) as i32, crate::SIZE, crate::SIZE);
+						let _ = self.canvas.fill_rect(drawing_rect);
+					}
+				}
+			}
+		}
+		return population;
+	}
+
+	fn draw_lines(&mut self) {
+		// Main grid lines
+		self.canvas.set_draw_color(crate::COLOR_BLACK_2);
+		for row in 1..crate::VIEW_COLS {
+			let start_point = Point::new((crate::H_MARGIN + crate::SIZE * row) as i32, crate::V_MARGIN as i32);
+			let end_point = Point::new((crate::H_MARGIN + crate::SIZE * row) as i32, (crate::V_MARGIN + (crate::VIEW_ROWS * crate::SIZE)-1) as i32);
+			let _ = self.canvas.draw_line(start_point, end_point);
+		}
+		for row in 1..crate::VIEW_ROWS {
+			let start_point = Point::new(crate::H_MARGIN as i32, (crate::V_MARGIN + crate::SIZE * row) as i32);
+			let end_point = Point::new((crate::H_MARGIN + (crate::VIEW_COLS * crate::SIZE)-1) as i32, (crate::V_MARGIN + crate::SIZE * row) as i32);
+			let _ = self.canvas.draw_line(start_point, end_point);
+		}
+		
+		// Outer grid lines
+		self.canvas.set_draw_color(crate::COLOR_BLACK_3);
+		let _ = self.canvas.draw_rect(Rect::new(crate::H_MARGIN as i32, crate::V_MARGIN as i32, crate::VIEW_COLS * crate::SIZE, crate::VIEW_ROWS * crate::SIZE));
+	}
+
+	fn draw_buttons(&mut self) {
+		// Text buttons
+		self.btn_start_simulation.draw(&mut self.canvas, self.main_font.as_ref().unwrap());
+		self.btn_pause_resume_simulation.draw(&mut self.canvas, self.main_font.as_ref().unwrap());
+		self.btn_clear_generation.draw(&mut self.canvas, self.main_font.as_ref().unwrap());
+		self.btn_abort_simulation.draw(&mut self.canvas, self.main_font.as_ref().unwrap());
+		self.btn_abort_n_save_simulation.draw(&mut self.canvas, self.main_font.as_ref().unwrap());
+		
+		// Icon buttons
+		self.btn_tool_pencil.draw(&mut self.canvas);
+		self.btn_tool_eraser.draw(&mut self.canvas);
+		self.btn_tool_hand.draw(&mut self.canvas);
+	}
 }
 
 fn get_click_indexes(x: i32, y: i32) -> ((i32, i32), bool) {
-	let i = (((y - V_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
-	let j = (((x - H_MARGIN as i32) as f32) / (SIZE as f32)).floor() as i32;
+	let row = (((y - crate::V_MARGIN as i32) as f32) / (crate::SIZE as f32)).floor() as i32;
+	let col = (((x - crate::H_MARGIN as i32) as f32) / (crate::SIZE as f32)).floor() as i32;
 
-	if i >= 0 && i < VIEW_ROWS as i32 && j >= 0 && j < VIEW_COLS as i32 {
-		return ((i, j), true);
+	if row >= 0 && row < crate::VIEW_ROWS as i32 && col >= 0 && col < crate::VIEW_COLS as i32 {
+		return ((row, col), true);
 	}
 	return ((-1, -1), false);
 }
 
-fn draw_lines(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>) {
-	canvas.set_draw_color(Color::RGB(40, 40, 40));
-	for i in 1..VIEW_COLS {
-		let start_point = Point::new((H_MARGIN + SIZE * i) as i32, V_MARGIN as i32);
-		let end_point = Point::new((H_MARGIN + SIZE * i) as i32, (V_MARGIN + (VIEW_ROWS * SIZE)-1) as i32);
-		let _ = canvas.draw_line(start_point, end_point);
-	}
-	for i in 1..VIEW_ROWS {
-		let start_point = Point::new(H_MARGIN as i32, (V_MARGIN + SIZE * i) as i32);
-		let end_point = Point::new((H_MARGIN + (VIEW_COLS * SIZE)-1) as i32, (V_MARGIN + SIZE * i) as i32);
-		let _ = canvas.draw_line(start_point, end_point);
-	}
-}
-
-fn draw_outerlines(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>) {
-	canvas.set_draw_color(Color::RGB(80, 80, 80));
-	let _ = canvas.draw_rect(Rect::new(H_MARGIN as i32, V_MARGIN as i32, VIEW_COLS * SIZE, VIEW_ROWS * SIZE));
-}
-
-fn draw_current_generation(canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, generation : &Vec<Vec<bool>>, iterating : bool, tl_row: u32, tl_col: u32) -> u32 {
-	let mut population = 0;
-	for i in 0..VIEW_ROWS {
-		for j in 0..VIEW_COLS {
-			if generation[(tl_row + i) as usize][(tl_col + j) as usize] == true {
-				canvas.set_draw_color(Color::RGB(if iterating { 0 } else { 255 }, if iterating { 255 } else {0}, 0));
-				let drawing_rect = Rect::new((H_MARGIN + j * SIZE) as i32, (V_MARGIN + i * SIZE) as i32, SIZE, SIZE);
-				let _ = canvas.fill_rect(drawing_rect);
-				population += 1;
-			} else {
-				if (((tl_row+i)/GRID_BIG_CELL_SIZE)%2 == 0 && ((tl_col+j)/GRID_BIG_CELL_SIZE)%2 == 0) || (((tl_row+i)/GRID_BIG_CELL_SIZE)%2 != 0 && ((tl_col+j)/GRID_BIG_CELL_SIZE)%2 != 0 ) {
-					canvas.set_draw_color(Color::RGB(20, 20, 20));
-					let drawing_rect = Rect::new((H_MARGIN + j * SIZE) as i32, (V_MARGIN + i * SIZE) as i32, SIZE, SIZE);
-					let _ = canvas.fill_rect(drawing_rect);
-				}
-			}
-		}
-	}
-	return population;
-}
 
 
 fn iterate_generation(generation : &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
 	let mut new_generation : Vec<Vec<bool>> = generation.clone();
 
-	for i in 0..ROWS {
-		for j in 0..COLS {
-			let neighbors = get_neighbors(generation, i as i32, j as i32);
-			if generation[i as usize][j as usize] == true { // Alive
+	for row in 0..crate::ROWS {
+		for col in 0..crate::COLS {
+			let neighbors = get_neighbors(generation, row as i32, col as i32);
+			if generation[row as usize][col as usize] == true { // Alive
 				if !(neighbors == 2 || neighbors == 3) {
-					new_generation[i as usize][j as usize] = false;
+					new_generation[row as usize][col as usize] = false;
 				}
 			} else { // Dead
 				if neighbors == 3 {
-					new_generation[i as usize][j as usize] = true;
+					new_generation[row as usize][col as usize] = true;
 				}
 			}
 		}
 	}
-
 
 	return new_generation;
 }
@@ -485,18 +479,17 @@ fn get_neighbors(generation : &Vec<Vec<bool>>, target_i : i32, target_j : i32) -
 	let mut neighbors  = 0 as i8;
 
 	let search_i_from = i32::max(0, target_i - 1);
-	let search_i_to = i32::min(ROWS as i32, target_i + 2);
+	let search_i_to = i32::min(crate::ROWS as i32, target_i + 2);
 	let search_j_from = i32::max(0, target_j - 1);
-	let search_j_to = i32::min(COLS as i32, target_j + 2);
+	let search_j_to = i32::min(crate::COLS as i32, target_j + 2);
 
-	for i in search_i_from..search_i_to {
-		for j in search_j_from..search_j_to {
-			if i != target_i || j != target_j {
-				if generation[i as usize][j as usize] == true {
+	for row in search_i_from..search_i_to {
+		for col in search_j_from..search_j_to {
+			if row != target_i || col != target_j {
+				if generation[row as usize][col as usize] == true {
 					neighbors += 1;
 				}
 			}
-
 		}
 	}
 	
