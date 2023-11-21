@@ -9,6 +9,9 @@ license = "MIT"
 license-file = "LICENSE"
 keywords = ["conway", "conways", "game", "life", "sdl2"]
 
+[dependencies]
+rayon = "1.8.0"
+
 [dependencies.sdl2]
 version = "0.35.2"
 default-features = false

@@ -1,5 +1,7 @@
 extern crate sdl2;
+extern crate rayon;
 
+use rayon::prelude::*;
 use core::fmt;
 use std::time::Instant;
 
@@ -526,20 +528,20 @@ fn get_click_indexes(x: i32, y: i32) -> ((i32, i32), bool) {
 fn iterate_generation(generation : &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
 	let mut new_generation : Vec<Vec<bool>> = generation.clone();
 
-	for row in 0..crate::ROWS {
-		for col in 0..crate::COLS {
-			let neighbors = get_neighbors(generation, row as i32, col as i32);
-			if generation[row as usize][col as usize] == true { // Alive
+	new_generation.par_iter_mut().enumerate().for_each(|(i, row)| {
+		row.par_iter_mut().enumerate().for_each(|(j,cell)| {
+			let neighbors = get_neighbors(generation, i as i32, j as i32);
+			if generation[i as usize][j as usize] == true { // Alive
 				if !(neighbors == 2 || neighbors == 3) {
-					new_generation[row as usize][col as usize] = false;
+					*cell = false;
 				}
 			} else { // Dead
 				if neighbors == 3 {
-					new_generation[row as usize][col as usize] = true;
+					*cell = true;
 				}
 			}
-		}
-	}
+		});
+	});
 
 	return new_generation;
 }
