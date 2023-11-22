@@ -1,9 +1,10 @@
 extern crate sdl2;
-extern crate rayon;
 
-use rayon::prelude::*;
+use sdl2::sys::_Float32;
 use core::fmt;
 use std::time::Instant;
+
+use super::SUB_MATRIX_CHUNK_SIZE;
 
 use sdl2::event::Event;
 use sdl2::mouse::MouseButton;
@@ -13,6 +14,7 @@ use sdl2::rect::Rect;
 use sdl2::render::TextureQuery;
 use sdl2::ttf::Font;
 
+use crate::SUB_MATRIX_SIZE;
 use crate::button;
 use crate::button::Button;
 use crate::button_icon;
@@ -70,6 +72,7 @@ pub struct Scene<'scene> {
 	state: State,
 	generation: Vec<Vec<bool>>,
 	previous_generation: Vec<Vec<bool>>,
+	change_matrix: Vec<Vec<bool>>,
 	generation_number: i32,
 	population_amount: u32,
 	last_iteration: Instant,
@@ -94,8 +97,9 @@ impl<'s> Scene<'s> {
 	pub fn new(canvas: sdl2::render::Canvas<sdl2::video::Window>) -> Self {
 		let texture_creator = canvas.texture_creator();
 	
-		let generation = vec![vec![false; crate::COLS as usize]; crate::ROWS as usize];
-		let previous_generation = vec![vec![false; crate::COLS as usize]; crate::ROWS as usize];
+		let generation = vec![vec![false; crate::MATRIX_SIZE as usize]; crate::MATRIX_SIZE as usize];
+		let previous_generation = vec![vec![false; crate::MATRIX_SIZE as usize]; crate::MATRIX_SIZE as usize];
+		let change_matrix = vec![vec![true; crate::SUB_MATRIX_SIZE as usize]; crate::SUB_MATRIX_SIZE as usize];
 	
 		Self {
 			canvas: canvas,
@@ -103,12 +107,15 @@ impl<'s> Scene<'s> {
 
 			active_tool: Tool::PENCIL,
 
-			top_left_col: (crate::COLS - crate::VIEW_COLS)/2,
-			top_left_row: (crate::ROWS - crate::VIEW_ROWS)/2,
+			// top_left_col: (crate::MATRIX_SIZE - crate::VIEW_COLS)/2,
+			// top_left_row: (crate::MATRIX_SIZE - crate::VIEW_ROWS)/2,
+			top_left_col: 0,
+			top_left_row: 0,
 
 			state: State::IDLE,
 			generation,
 			previous_generation,
+			change_matrix,
 			generation_number: 0,
 			population_amount: 0,
 			last_iteration: std::time::Instant::now(),
@@ -186,14 +193,16 @@ impl<'s> Scene<'s> {
 								self.set_state(State::IDLE);
 	
 								self.generation = self.previous_generation.clone();
+								self.change_matrix = vec![vec![true; crate::SUB_MATRIX_SIZE as usize]; crate::SUB_MATRIX_SIZE as usize];
 								self.generation_number = 0;
 								self.set_tool(Tool::PENCIL);
 							} else if self.btn_abort_n_save_simulation.is_hovered() {
 								self.set_state(State::IDLE);
+								self.change_matrix = vec![vec![true; crate::SUB_MATRIX_SIZE as usize]; crate::SUB_MATRIX_SIZE as usize];
 								self.generation_number = 0;
 								self.set_tool(Tool::PENCIL);
 							} else if self.btn_clear_generation.is_hovered() {
-								self.generation = vec![vec![false; crate::COLS as usize]; crate::ROWS as usize];
+								self.generation = vec![vec![false; crate::MATRIX_SIZE as usize]; crate::MATRIX_SIZE as usize];
 							} else if self.btn_tool_pencil.is_hovered() {
 								self.set_tool(Tool::PENCIL);
 							} else if self.btn_tool_eraser.is_hovered() {
@@ -261,7 +270,7 @@ impl<'s> Scene<'s> {
 
 							if difference_y.abs() as u32 > crate::SIZE {
 								if difference_y > 0 {
-									if self.top_left_row + move_units < crate::ROWS-crate::VIEW_ROWS {
+									if self.top_left_row + move_units < crate::MATRIX_SIZE-crate::VIEW_ROWS {
 										self.top_left_row += move_units;
 									}
 								} else if difference_y < 0 {
@@ -274,7 +283,7 @@ impl<'s> Scene<'s> {
 
 							if difference_x.abs() as u32 > crate::SIZE {
 								if difference_x > 0 {
-									if self.top_left_col + move_units < crate::COLS-crate::VIEW_COLS {
+									if self.top_left_col + move_units < crate::MATRIX_SIZE-crate::VIEW_COLS {
 										self.top_left_col += move_units;
 									}
 								} else if difference_x < 0 {
@@ -395,7 +404,7 @@ impl<'s> Scene<'s> {
 
 		// Iterate the generation and count
 		if self.state == State::ITERATING && self.last_iteration.elapsed() > crate::ITERATION_COOLDOWN {
-			self.generation = iterate_generation(&self.generation);
+			(self.generation, self.change_matrix) = self.iterate_generation(&self.generation);
 			self.generation_number += 1;
 			self.last_iteration = std::time::Instant::now();
 		}
@@ -468,7 +477,7 @@ impl<'s> Scene<'s> {
 					let _ = self.canvas.fill_rect(drawing_rect);
 					population += 1;
 				} else {
-					if (((self.top_left_row+row)/crate::GRID_BIG_CELL_SIZE)%2 == 0 && ((self.top_left_col+col)/crate::GRID_BIG_CELL_SIZE)%2 == 0) || (((self.top_left_row+row)/crate::GRID_BIG_CELL_SIZE)%2 != 0 && ((self.top_left_col+col)/crate::GRID_BIG_CELL_SIZE)%2 != 0 ) {
+					if (((self.top_left_row+row)/ SUB_MATRIX_CHUNK_SIZE)%2 == 0 && ((self.top_left_col+col)/ SUB_MATRIX_CHUNK_SIZE)%2 == 0) || (((self.top_left_row+row)/ SUB_MATRIX_CHUNK_SIZE)%2 != 0 && ((self.top_left_col+col)/ SUB_MATRIX_CHUNK_SIZE)%2 != 0 ) {
 						self.canvas.set_draw_color(crate::COLOR_BLACK_1);
 						let drawing_rect = Rect::new((crate::H_MARGIN + col * crate::SIZE) as i32, (crate::V_MARGIN + row * crate::SIZE) as i32, crate::SIZE, crate::SIZE);
 						let _ = self.canvas.fill_rect(drawing_rect);
@@ -511,6 +520,130 @@ impl<'s> Scene<'s> {
 		self.btn_tool_eraser.draw(&mut self.canvas);
 		self.btn_tool_hand.draw(&mut self.canvas);
 	}
+	
+
+
+	fn get_neighbors(&self, target_i : i32, target_j : i32) -> i8 {
+		let mut neighbors  = 0 as i8;
+
+		let search_i_from = i32::max(0, target_i - 1);
+		let search_i_to = i32::min(crate::MATRIX_SIZE as i32, target_i + 2);
+		let search_j_from = i32::max(0, target_j - 1);
+		let search_j_to = i32::min(crate::MATRIX_SIZE as i32, target_j + 2);
+
+		for row in search_i_from..search_i_to {
+			for col in search_j_from..search_j_to {
+				if row != target_i || col != target_j {
+					if self.generation[row as usize][col as usize] == true {
+						neighbors += 1;
+					}
+				}
+			}
+		}
+		
+		return neighbors;
+	}
+
+	fn iterate_generation(&self, generation : &Vec<Vec<bool>>) -> (Vec<Vec<bool>>, Vec<Vec<bool>>) {
+		let it_start = Instant::now();
+		let mut new_generation : Vec<Vec<bool>> = generation.clone();
+		let mut new_change_matrix : Vec<Vec<bool>> = self.change_matrix.clone();
+
+		for sub_row in 0..SUB_MATRIX_SIZE {
+			for sub_col in 0..SUB_MATRIX_SIZE {
+
+				let previously_changed = self.change_matrix[sub_row as usize][sub_col as usize];
+				let has_changed_neighbors = self.has_changed_neighbors(sub_row, sub_col);
+				let iterate_sub_matrix = previously_changed || has_changed_neighbors;
+				
+				if iterate_sub_matrix { // Matrix has changed in last iteration
+					let mut has_changed = false;
+
+					if !previously_changed && has_changed_neighbors { // The cell had no changes, but need to check borders in case neighbor cells are moving towards this cell. This reduces iterations on aprox 75%
+						
+						let mut elems_top: Vec<(usize, usize)> = (0..SUB_MATRIX_CHUNK_SIZE).map(|i| ((sub_row*SUB_MATRIX_CHUNK_SIZE) as usize, (sub_col*SUB_MATRIX_CHUNK_SIZE+i) as usize)).collect(); // Top border
+						let mut elems_bottom: Vec<(usize, usize)> = (0..SUB_MATRIX_CHUNK_SIZE).map(|i| (((sub_row+1)*SUB_MATRIX_CHUNK_SIZE-1) as usize, (sub_col*SUB_MATRIX_CHUNK_SIZE+i) as usize)).collect(); // Bottom border
+						let mut elems_left: Vec<(usize, usize)> = (0..SUB_MATRIX_CHUNK_SIZE).map(|i| ((sub_row*SUB_MATRIX_CHUNK_SIZE+i) as usize, (sub_col*SUB_MATRIX_CHUNK_SIZE) as usize)).collect(); // Left border
+						let mut elems_right: Vec<(usize, usize)> = (0..SUB_MATRIX_CHUNK_SIZE).map(|i| ((sub_row*SUB_MATRIX_CHUNK_SIZE+i) as usize, ((sub_col+1)*SUB_MATRIX_CHUNK_SIZE-1) as usize)).collect(); // Left border
+	
+
+						let mut all_elems: Vec<(usize, usize)> = Vec::new();
+						all_elems.append(&mut elems_top);
+						all_elems.append(&mut elems_bottom);
+						all_elems.append(&mut elems_left);
+						all_elems.append(&mut elems_right);
+
+						for elem in all_elems {
+							let row = elem.0;
+							let col = elem.1;
+							let neighbors = self.get_neighbors(row as i32, col as i32);
+							if generation[row][col] == true { // Alive
+								if !(neighbors == 2 || neighbors == 3) {
+									new_generation[row][col] = false;
+									has_changed = true;
+								}
+							} else { // Dead
+								if neighbors == 3 {
+									new_generation[row][col] = true;
+									has_changed = true;
+								}
+							}
+						}
+
+
+
+					} else { // The cell had changes
+						for row in sub_row*(SUB_MATRIX_CHUNK_SIZE)..(sub_row+1)*(SUB_MATRIX_CHUNK_SIZE) {
+							for col in sub_col*(SUB_MATRIX_CHUNK_SIZE)..(sub_col+1)*(SUB_MATRIX_CHUNK_SIZE) {
+								let neighbors = self.get_neighbors(row as i32, col as i32);
+								if generation[row as usize][col as usize] == true { // Alive
+									if !(neighbors == 2 || neighbors == 3) {
+										new_generation[row as usize][col as usize] = false;
+										has_changed = true;
+									}
+								} else { // Dead
+									if neighbors == 3 {
+										new_generation[row as usize][col as usize] = true;
+										has_changed = true;
+									}
+								}
+							}
+						}
+					}
+
+
+					new_change_matrix[sub_row as usize][sub_col as usize] = has_changed;
+				}
+			}
+		}
+
+		println!("Done in {}ms [{}s]", it_start.elapsed().as_millis(), it_start.elapsed().as_millis() as _Float32 / 1000 as _Float32);
+		return (new_generation, new_change_matrix);
+	}
+
+	fn has_changed_neighbors(&self, i: u32, j: u32) -> bool {
+		let target_i: i32 = i as i32;
+		let target_j: i32 = j as i32;
+
+
+	
+		let search_i_from = i32::max(0, target_i - 1);
+		let search_i_to = i32::min(crate::SUB_MATRIX_SIZE as i32, target_i + 2);
+		let search_j_from = i32::max(0, target_j - 1);
+		let search_j_to = i32::min(crate::SUB_MATRIX_SIZE as i32, target_j + 2);
+	
+		for row in search_i_from..search_i_to {
+			for col in search_j_from..search_j_to {
+				if row != target_i || col != target_j {
+					if self.change_matrix[row as usize][col as usize] == true {
+						return true;
+					}
+				}
+			}
+		}
+		
+		return false;
+	}
 }
 
 fn get_click_indexes(x: i32, y: i32) -> ((i32, i32), bool) {
@@ -521,48 +654,5 @@ fn get_click_indexes(x: i32, y: i32) -> ((i32, i32), bool) {
 		return ((row, col), true);
 	}
 	return ((-1, -1), false);
-}
-
-
-
-fn iterate_generation(generation : &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
-	let mut new_generation : Vec<Vec<bool>> = generation.clone();
-
-	new_generation.par_iter_mut().enumerate().for_each(|(i, row)| {
-		row.par_iter_mut().enumerate().for_each(|(j,cell)| {
-			let neighbors = get_neighbors(generation, i as i32, j as i32);
-			if generation[i as usize][j as usize] == true { // Alive
-				if !(neighbors == 2 || neighbors == 3) {
-					*cell = false;
-				}
-			} else { // Dead
-				if neighbors == 3 {
-					*cell = true;
-				}
-			}
-		});
-	});
-
-	return new_generation;
-}
-
-fn get_neighbors(generation : &Vec<Vec<bool>>, target_i : i32, target_j : i32) -> i8 {
-	let mut neighbors  = 0 as i8;
-
-	let search_i_from = i32::max(0, target_i - 1);
-	let search_i_to = i32::min(crate::ROWS as i32, target_i + 2);
-	let search_j_from = i32::max(0, target_j - 1);
-	let search_j_to = i32::min(crate::COLS as i32, target_j + 2);
-
-	for row in search_i_from..search_i_to {
-		for col in search_j_from..search_j_to {
-			if row != target_i || col != target_j {
-				if generation[row as usize][col as usize] == true {
-					neighbors += 1;
-				}
-			}
-		}
-	}
 	
-	return neighbors;
 }
