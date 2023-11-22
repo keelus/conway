@@ -7,7 +7,6 @@
 
 ## ℹ️ Description
 An implementation of [Conway's Game Of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life) in Rust, using SDL2 and SDL2_TTF for graphics.
-> Known v1.0.1 errors: Drawing while iteration is paused won't work as expected once resumed the iteration. Drawing before starting the iteration will work correctly.
 
 ## 📸 Screenshots
 <img src="https://github.com/keelus/conway/assets/86611436/c88c0809-c78d-414e-99b5-0f74a155561d" width=400 />
