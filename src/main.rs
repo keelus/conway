@@ -11,16 +11,16 @@ use sdl2::{pixels::Color, ttf::FontStyle};
 
 
 // Generation vector size
-const MATRIX_SIZE: u32 = 1024*4;
-const SUB_MATRIX_SIZE: u32 = 128;
-const SUB_MATRIX_CHUNK_SIZE: u32 = MATRIX_SIZE / SUB_MATRIX_SIZE;
+const MATRIX_SIZE: u32 = 1024*8;	// How many columns and rows has the entire matrix (MATRIX_SIZE x MATRIX_SIZE)
+const SUB_MATRIX_SIZE: u32 = 128;	// How many columns and rows the sub matrix will have (it's a boolean matrix that stores the boolean of change or not represeting a chunk of cells)
+const SUB_MATRIX_CHUNK_SIZE: u32 = MATRIX_SIZE / SUB_MATRIX_SIZE; // The chunk size of cells that will represent each boolean sub matrix chunk
 
 
 
 // Visible grid
-const SIZE: u32 = 10;
-const VIEW_COLS : u32 = 80;
-const VIEW_ROWS : u32 = 60;
+const SIZE: u32 = 10; // Width and height of each visible cell
+const VIEW_COLS : u32 = 80; // How many columns of cells will be visible
+const VIEW_ROWS : u32 = 60; // How many rows of cells will be visible
 
 // Generated grid values
 const GRID_WIDTH: u32 = SIZE * VIEW_COLS;
@@ -45,40 +45,7 @@ const COLOR_BLACK_2: Color = Color::RGB(40, 40, 40);
 const COLOR_BLACK_3: Color = Color::RGB(80, 80, 80);
 
 
-pub fn is_perfect_square(number: u32) -> bool {
-    let square_root = (number as f32).powf(0.5);
-    
-    return square_root.powf(2 as f32) == number as f32
-}
-
-pub fn valid_constants() -> bool {
-	if MATRIX_SIZE%8 != 0 {
-		println!("Error on matrix size constant value.");
-		return false;
-	}
-	// if !is_perfect_square(SUB_MATRIX_CHUNK_ELEMENTS) {
-	// 	println!("Error on sub matrix size constant value.");
-	// 	return false;
-	// }
-
-	return true
-}
-
-
 pub fn main() {
-	if valid_constants() == false {
-		panic!("[ERROR] Check constants.");
-	} else {
-		println!("[INFO] Constants are valid");
-		println!("\tMATRIX_SIZE: {}", MATRIX_SIZE);
-		println!("\tSUB_MATRIX_SIZE: {}", SUB_MATRIX_SIZE);
-		println!("\tSUB_MATRIX_CHUNK_SIZE: {}", SUB_MATRIX_CHUNK_SIZE);
-		
-		// println!("\tSUB_MATRIX_CHUNK_ELEMENTS: {}", SUB_MATRIX_CHUNK_ELEMENTS);
-		// println!("\tSUB_MATRIX_CHUNK_SIZE: {}", *SUB_MATRIX_CHUNK_SIZE);
-	}
-
-	
 	if MATRIX_SIZE < VIEW_COLS || MATRIX_SIZE < VIEW_ROWS {
 		panic!("[ERROR] Total population rows x cols should be greater than shown rows x cols");
 	}

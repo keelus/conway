@@ -2,7 +2,7 @@
 name = "conway"
 description = "Conway's Game Of Life implementation in rust."
 authors = ["keelus"]
-version = "1.0.1"
+version = "1.1.0"
 edition = "2021"
 repository = "https://github.com/keelus/conway"
 license = "MIT"
@@ -12,6 +12,7 @@ keywords = ["conway", "conways", "game", "life", "sdl2"]
 [dependencies]
 lazy_static = "1.4.0"
 num-traits = "0.2.17"
+rayon = "1.8.0"
 
 [dependencies.sdl2]
 version = "0.35.2"

@@ -1,5 +1,9 @@
 extern crate sdl2;
+extern crate rayon;
 
+use rayon::iter::IndexedParallelIterator;
+use rayon::iter::IntoParallelRefMutIterator;
+use rayon::iter::ParallelIterator;
 use sdl2::sys::_Float32;
 use core::fmt;
 use std::time::Instant;
@@ -107,10 +111,8 @@ impl<'s> Scene<'s> {
 
 			active_tool: Tool::PENCIL,
 
-			// top_left_col: (crate::MATRIX_SIZE - crate::VIEW_COLS)/2,
-			// top_left_row: (crate::MATRIX_SIZE - crate::VIEW_ROWS)/2,
 			top_left_col: 0,
-			top_left_row: 0,
+			top_left_row: 20,
 
 			state: State::IDLE,
 			generation,
@@ -178,11 +180,13 @@ impl<'s> Scene<'s> {
 								self.set_state(State::ITERATING);
 								self.previous_generation = self.generation.clone();
 								self.btn_pause_resume_simulation.set_text("Pause".to_string());
+								self.bruteforce_changes();
 								self.set_tool(Tool::HAND);
 							} else if self.btn_pause_resume_simulation.is_hovered() {	
 								if self.state == State::PAUSE {
 									self.set_state(State::ITERATING);
 									self.btn_pause_resume_simulation.set_text("Pause".to_string());
+									self.bruteforce_changes();
 									self.set_tool(Tool::HAND);
 								} else if self.state == State::ITERATING {
 									self.set_state(State::PAUSE);
@@ -191,7 +195,6 @@ impl<'s> Scene<'s> {
 								}
 							} else if self.btn_abort_simulation.is_hovered() {
 								self.set_state(State::IDLE);
-	
 								self.generation = self.previous_generation.clone();
 								self.change_matrix = vec![vec![true; crate::SUB_MATRIX_SIZE as usize]; crate::SUB_MATRIX_SIZE as usize];
 								self.generation_number = 0;
@@ -617,7 +620,9 @@ impl<'s> Scene<'s> {
 			}
 		}
 
-		println!("Done in {}ms [{}s]", it_start.elapsed().as_millis(), it_start.elapsed().as_millis() as _Float32 / 1000 as _Float32);
+		if it_start.elapsed().as_secs() > 1 {
+			println!("[WARNING] Iteration took {}ms [{}s]", it_start.elapsed().as_millis(), it_start.elapsed().as_millis() as _Float32 / 1000 as _Float32);
+		}
 		return (new_generation, new_change_matrix);
 	}
 
@@ -643,6 +648,33 @@ impl<'s> Scene<'s> {
 		}
 		
 		return false;
+	}
+
+	fn bruteforce_changes(&mut self) {
+		let it_start = Instant::now();
+
+		let mut new_matrix = vec![vec![true; crate::SUB_MATRIX_SIZE as usize]; crate::SUB_MATRIX_SIZE as usize];
+		new_matrix.par_iter_mut().enumerate().for_each(|(sub_row, row_content)| {
+			row_content.par_iter_mut().enumerate().for_each(|(sub_col, elem)| {
+				let mut has_alive_cells = false;
+				for row in sub_row*(SUB_MATRIX_CHUNK_SIZE as usize)..(sub_row+1)*(SUB_MATRIX_CHUNK_SIZE as usize) {
+					for col in sub_col*(SUB_MATRIX_CHUNK_SIZE as usize)..(sub_col+1)*(SUB_MATRIX_CHUNK_SIZE as usize) {
+						if self.generation[row as usize][col as usize] == true { // Alive
+							has_alive_cells = true;
+							break;
+						}
+					}
+					if has_alive_cells {
+						break;
+					}
+				}
+				*elem = has_alive_cells;
+			})
+		});
+
+		self.change_matrix = new_matrix;
+		
+		println!("[INFO] Changes took {}ms [{}s] to load", it_start.elapsed().as_millis(), it_start.elapsed().as_millis() as _Float32 / 1000 as _Float32);
 	}
 }
 
