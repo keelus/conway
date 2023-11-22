@@ -157,91 +157,91 @@ impl<'s> Scene<'s> {
 				Event::MouseButtonDown { x, y, mouse_btn, .. } => {
 					match mouse_btn {
 						MouseButton::Left => {
-							if self.active_tool == Tool::HAND {
-								let (_, clicked_canvas) = get_click_indexes(x, y);
-								if clicked_canvas {
-									self.dragging = true;
-									self.dragging_start = (x, y);
-								}
-							}
-	
-							if self.state != State::ITERATING { // Allow draw on Idle or Pause states
-								let (indexes, clicked_canvas) = get_click_indexes(x, y);
-								if clicked_canvas {
-									if self.active_tool == Tool::PENCIL {
-										self.generation[(self.top_left_row as i32 + indexes.0) as usize][(self.top_left_col as i32 + indexes.1)  as usize] = true;
-									} else if self.active_tool == Tool::ERASER {
-										self.generation[(self.top_left_row as i32 + indexes.0) as usize][(self.top_left_col as i32 + indexes.1)  as usize] = false;
+							if !self.dragging {
+								if self.active_tool == Tool::HAND {
+									let (_, clicked_canvas) = get_click_indexes(x, y);
+									if clicked_canvas {
+										self.dragging = true;
+										self.dragging_start = (x, y);
 									}
 								}
-							}
-	
-							if self.btn_start_simulation.is_hovered() {
-								self.set_state(State::ITERATING);
-								self.previous_generation = self.generation.clone();
-								self.btn_pause_resume_simulation.set_text("Pause".to_string());
-								self.bruteforce_changes();
-								self.set_tool(Tool::HAND);
-							} else if self.btn_pause_resume_simulation.is_hovered() {	
-								if self.state == State::PAUSE {
+		
+								if self.state != State::ITERATING { // Allow draw on Idle or Pause states
+									let (indexes, clicked_canvas) = get_click_indexes(x, y);
+									if clicked_canvas {
+										if self.active_tool == Tool::PENCIL {
+											self.generation[(self.top_left_row as i32 + indexes.0) as usize][(self.top_left_col as i32 + indexes.1)  as usize] = true;
+										} else if self.active_tool == Tool::ERASER {
+											self.generation[(self.top_left_row as i32 + indexes.0) as usize][(self.top_left_col as i32 + indexes.1)  as usize] = false;
+										}
+									}
+								}
+		
+								if self.btn_start_simulation.is_hovered() {
 									self.set_state(State::ITERATING);
+									self.previous_generation = self.generation.clone();
 									self.btn_pause_resume_simulation.set_text("Pause".to_string());
 									self.bruteforce_changes();
 									self.set_tool(Tool::HAND);
-								} else if self.state == State::ITERATING {
-									self.set_state(State::PAUSE);
-									self.btn_pause_resume_simulation.set_text("Resume".to_string());
+								} else if self.btn_pause_resume_simulation.is_hovered() {	
+									if self.state == State::PAUSE {
+										self.set_state(State::ITERATING);
+										self.btn_pause_resume_simulation.set_text("Pause".to_string());
+										self.bruteforce_changes();
+										self.set_tool(Tool::HAND);
+									} else if self.state == State::ITERATING {
+										self.set_state(State::PAUSE);
+										self.btn_pause_resume_simulation.set_text("Resume".to_string());
+										self.set_tool(Tool::PENCIL);
+									}
+								} else if self.btn_abort_simulation.is_hovered() {
+									self.set_state(State::IDLE);
+									self.generation = self.previous_generation.clone();
+									self.change_matrix = vec![vec![true; crate::SUB_MATRIX_SIZE as usize]; crate::SUB_MATRIX_SIZE as usize];
+									self.generation_number = 0;
 									self.set_tool(Tool::PENCIL);
+								} else if self.btn_abort_n_save_simulation.is_hovered() {
+									self.set_state(State::IDLE);
+									self.change_matrix = vec![vec![true; crate::SUB_MATRIX_SIZE as usize]; crate::SUB_MATRIX_SIZE as usize];
+									self.generation_number = 0;
+									self.set_tool(Tool::PENCIL);
+								} else if self.btn_clear_generation.is_hovered() {
+									self.generation = vec![vec![false; crate::MATRIX_SIZE as usize]; crate::MATRIX_SIZE as usize];
+								} else if self.btn_tool_pencil.is_hovered() {
+									self.set_tool(Tool::PENCIL);
+								} else if self.btn_tool_eraser.is_hovered() {
+									self.set_tool(Tool::ERASER);
+								} else if self.btn_tool_hand.is_hovered() {
+									self.set_tool(Tool::HAND);
 								}
-							} else if self.btn_abort_simulation.is_hovered() {
-								self.set_state(State::IDLE);
-								self.generation = self.previous_generation.clone();
-								self.change_matrix = vec![vec![true; crate::SUB_MATRIX_SIZE as usize]; crate::SUB_MATRIX_SIZE as usize];
-								self.generation_number = 0;
-								self.set_tool(Tool::PENCIL);
-							} else if self.btn_abort_n_save_simulation.is_hovered() {
-								self.set_state(State::IDLE);
-								self.change_matrix = vec![vec![true; crate::SUB_MATRIX_SIZE as usize]; crate::SUB_MATRIX_SIZE as usize];
-								self.generation_number = 0;
-								self.set_tool(Tool::PENCIL);
-							} else if self.btn_clear_generation.is_hovered() {
-								self.generation = vec![vec![false; crate::MATRIX_SIZE as usize]; crate::MATRIX_SIZE as usize];
-							} else if self.btn_tool_pencil.is_hovered() {
-								self.set_tool(Tool::PENCIL);
-							} else if self.btn_tool_eraser.is_hovered() {
-								self.set_tool(Tool::ERASER);
-							} else if self.btn_tool_hand.is_hovered() {
-								self.set_tool(Tool::HAND);
-							}
-							
-							if self.state != State::ITERATING {
-								if self.generation_number == 0 {
-									self.btn_start_simulation.set_hidden(false);
-									self.btn_pause_resume_simulation.set_hidden(true);
-									self.btn_abort_simulation.set_hidden(true);
-									self.btn_abort_n_save_simulation.set_hidden(true);
+								
+								if self.state != State::ITERATING {
+									if self.generation_number == 0 {
+										self.btn_start_simulation.set_hidden(false);
+										self.btn_pause_resume_simulation.set_hidden(true);
+										self.btn_abort_simulation.set_hidden(true);
+										self.btn_abort_n_save_simulation.set_hidden(true);
+									} else {
+										self.btn_start_simulation.set_hidden(true);
+										self.btn_pause_resume_simulation.set_hidden(false);
+										self.btn_abort_simulation.set_hidden(false);
+										self.btn_abort_n_save_simulation.set_hidden(false);
+									}
+									self.btn_clear_generation.set_hidden(false);
+									self.btn_tool_pencil.set_hidden(false);
+									self.btn_tool_eraser.set_hidden(false);
 								} else {
 									self.btn_start_simulation.set_hidden(true);
+									self.btn_clear_generation.set_hidden(true);
 									self.btn_pause_resume_simulation.set_hidden(false);
 									self.btn_abort_simulation.set_hidden(false);
 									self.btn_abort_n_save_simulation.set_hidden(false);
+									self.btn_tool_pencil.set_hidden(true);
+									self.btn_tool_eraser.set_hidden(true);
 								}
-								self.btn_clear_generation.set_hidden(false);
-								self.btn_tool_pencil.set_hidden(false);
-								self.btn_tool_eraser.set_hidden(false);
-							} else {
-								self.btn_start_simulation.set_hidden(true);
-								self.btn_clear_generation.set_hidden(true);
-								self.btn_pause_resume_simulation.set_hidden(false);
-								self.btn_abort_simulation.set_hidden(false);
-								self.btn_abort_n_save_simulation.set_hidden(false);
-								self.btn_tool_pencil.set_hidden(true);
-								self.btn_tool_eraser.set_hidden(true);
 							}
 						},
 						MouseButton::Middle => {
-							self.set_tool(Tool::HAND);
-							
 							let (_, clicked_canvas) = get_click_indexes(x, y);
 							if clicked_canvas {
 								self.dragging = true;
@@ -252,13 +252,13 @@ impl<'s> Scene<'s> {
 					}
 				},
 				Event::MouseMotion { x, y, mousestate, ..} => {
-					if self.state != State::ITERATING && mousestate.is_mouse_button_pressed(MouseButton::Left) {
+					if self.state != State::ITERATING && mousestate.is_mouse_button_pressed(MouseButton::Left) && !self.dragging {
 						let (indexes, clicked_canvas) = get_click_indexes(x, y);
 						if clicked_canvas && self.active_tool != Tool::HAND {
 							self.generation[(self.top_left_row as i32 + indexes.0) as usize][(self.top_left_col as i32 + indexes.1)  as usize] = self.active_tool == Tool::PENCIL;
 						}
 					}
-					if self.active_tool == Tool::HAND && self.dragging {
+					if self.dragging {
 						let (_, clicked_canvas) = get_click_indexes(x, y);
 						if clicked_canvas {
 							let dragging_end = (x, y);
