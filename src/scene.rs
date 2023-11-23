@@ -480,7 +480,7 @@ impl<'s> Scene<'s> {
 					let _ = self.canvas.fill_rect(drawing_rect);
 					population += 1;
 				} else {
-					if (((self.top_left_row+row)/ SUB_MATRIX_CHUNK_SIZE)%2 == 0 && ((self.top_left_col+col)/ SUB_MATRIX_CHUNK_SIZE)%2 == 0) || (((self.top_left_row+row)/ SUB_MATRIX_CHUNK_SIZE)%2 != 0 && ((self.top_left_col+col)/ SUB_MATRIX_CHUNK_SIZE)%2 != 0 ) {
+					if (((self.top_left_row+row)/crate::GRID_BIG_CELL_SIZE)%2 == 0 && ((self.top_left_col+col)/crate::GRID_BIG_CELL_SIZE)%2 == 0) || (((self.top_left_row+row)/crate::GRID_BIG_CELL_SIZE)%2 != 0 && ((self.top_left_col+col)/crate::GRID_BIG_CELL_SIZE)%2 != 0 ) {
 						self.canvas.set_draw_color(crate::COLOR_BLACK_1);
 						let drawing_rect = Rect::new((crate::H_MARGIN + col * crate::SIZE) as i32, (crate::V_MARGIN + row * crate::SIZE) as i32, crate::SIZE, crate::SIZE);
 						let _ = self.canvas.fill_rect(drawing_rect);

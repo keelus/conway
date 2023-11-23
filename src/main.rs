@@ -21,6 +21,7 @@ const SUB_MATRIX_CHUNK_SIZE: u32 = MATRIX_SIZE / SUB_MATRIX_SIZE; // The chunk s
 const SIZE: u32 = 10; // Width and height of each visible cell
 const VIEW_COLS : u32 = 80; // How many columns of cells will be visible
 const VIEW_ROWS : u32 = 60; // How many rows of cells will be visible
+const GRID_BIG_CELL_SIZE : u32 = 10; // Width and height of the background chessboard squares
 
 // Generated grid values
 const GRID_WIDTH: u32 = SIZE * VIEW_COLS;
